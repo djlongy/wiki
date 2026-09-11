@@ -90,6 +90,7 @@ export const useSiteStore = defineStore('site', {
     features: {
       browse: false,
       collaborativeEditing: false,
+      comments: false,
       ratingsMode: 'off',
       reasonForChange: 'required',
       search: false

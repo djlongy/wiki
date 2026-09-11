@@ -4,6 +4,7 @@ import { assets } from './assets.ts'
 import { auditLog } from './auditLog.ts'
 import { authentication } from './authentication.ts'
 import { blocks } from './blocks.ts'
+import { comments } from './comments.ts'
 import { extensions } from './extensions.ts'
 import { flags } from './flags.ts'
 import { groups } from './groups.ts'
@@ -37,6 +38,7 @@ export default {
   auditLog,
   authentication,
   blocks,
+  comments,
   extensions,
   flags,
   groups,

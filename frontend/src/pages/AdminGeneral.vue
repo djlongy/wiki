@@ -187,21 +187,19 @@
             </w-item-section>
           </w-item>
           <w-separator class="my-2" inset />
-          <template v-if="flagsStore.experimental">
-            <w-item tag="label">
-              <blueprint-icon icon="discussion-forum" />
-              <w-item-section>
-                <w-item-label>{{ t(`admin.general.allowComments`) }}</w-item-label>
-                <w-item-label caption>{{ t(`admin.general.allowCommentsHint`) }}</w-item-label>
-              </w-item-section>
-              <w-item-section avatar>
-                <w-toggle
-                  v-model="state.config.features.comments"
-                  :aria-label="t(`admin.general.allowComments`)" />
-              </w-item-section>
-            </w-item>
-            <w-separator class="my-2" inset />
-          </template>
+          <w-item tag="label">
+            <blueprint-icon icon="discussion-forum" />
+            <w-item-section>
+              <w-item-label>{{ t(`admin.general.allowComments`) }}</w-item-label>
+              <w-item-label caption>{{ t(`admin.general.allowCommentsHint`) }}</w-item-label>
+            </w-item-section>
+            <w-item-section avatar>
+              <w-toggle
+                v-model="state.config.features.comments"
+                :aria-label="t(`admin.general.allowComments`)" />
+            </w-item-section>
+          </w-item>
+          <w-separator class="my-2" inset />
           <template v-if="flagsStore.experimental">
             <w-item>
               <blueprint-icon icon="star-half-empty" />

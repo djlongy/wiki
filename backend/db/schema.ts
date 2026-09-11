@@ -209,6 +209,48 @@ export const blocks = pgTable(
   (table) => [index('blocks_siteId_idx').on(table.siteId)]
 )
 
+// COMMENTS ----------------------------
+/**
+ * What somebody wrote under a page, one row per comment.
+ *
+ * The content is markdown SOURCE and nothing else. Pages store the HTML their editor produced
+ * alongside the source, because a page is rendered once and read many times; a comment is not worth a
+ * headless browser, and the browser reading it already carries the same markdown pipeline. So there is
+ * no `render` column here, and nothing in this table has ever been through a sanitizer -- which is
+ * also why there is nothing here that could arrive as HTML in the first place.
+ *
+ * `siteId` is carried alongside `pageId` rather than reached through the page for the same reason the
+ * watch list carries it: every query is scoped to one site, and the routes address a page by site.
+ *
+ * A comment is bound to a page by id, so moving or renaming the page carries its thread along
+ * untouched, and deleting the page takes the thread with it.
+ */
+export const comments = pgTable(
+  'comments',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    /** Markdown source, rendered by whoever reads it. */
+    content: text().notNull(),
+    // -> A guest has no account to attribute the comment to, so it says who left it. Null for a
+    //    logged in author, whose name is on `authorId` instead.
+    guestName: varchar({ length: 255 }),
+    guestEmail: varchar({ length: 255 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+    pageId: uuid()
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    siteId: uuid()
+      .notNull()
+      .references(() => sites.id),
+    // -> Nulled rather than cascaded when the account goes, as page history does with the same
+    //    question: a discussion is not the author's to take away by closing an account
+    authorId: uuid().references(() => users.id, { onDelete: 'set null' })
+  },
+  // -> The thread's own query: one page's comments, oldest first
+  (table) => [index('comments_page_created_idx').on(table.pageId, table.createdAt)]
+)
+
 // GROUPS ------------------------------
 export const groups = pgTable('groups', {
   id: uuid().primaryKey().defaultRandom(),

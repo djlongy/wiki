@@ -194,6 +194,13 @@
                 </div>
               </div>
             </div>
+            <!--
+              Under the article and its relations, which is where a reader arrives having finished
+              reading. Inside `page-container-body` so it takes the same content width as the article;
+              the component draws nothing at all where the site has comments off or this reader may
+              not read them.
+            -->
+            <page-comments />
           </div>
           <!--
             Inside the scrolling column, and last: this is the bottom of the PAGE, so it is reached by
@@ -377,6 +384,7 @@ import { useUserStore } from '@/stores/user'
 import FooterNav from '@/components/FooterNav.vue'
 import LoadingGeneric from '@/components/LoadingGeneric.vue'
 import PageActionsCol from '@/components/PageActionsCol.vue'
+import PageComments from '@/components/PageComments.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PageRedirect from '@/components/PageRedirect.vue'
 import PageTags from '@/components/PageTags.vue'

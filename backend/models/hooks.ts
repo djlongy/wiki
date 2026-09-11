@@ -6,8 +6,8 @@ import { desc, eq, sql } from 'drizzle-orm'
 /**
  * The events a webhook can subscribe to, as offered by the admin area.
  *
- * Not all of them have emit points today — comments are not implemented yet, so subscribing to those
- * stores a subscription that nothing triggers.
+ * Every one of them has an emit point today; `EMITTED_EVENTS` below is what says so, and is the list
+ * to add to when a new event gains one.
  */
 export const HOOK_EVENTS = [
   'page:create',
@@ -31,8 +31,9 @@ export type HookEvent = (typeof HOOK_EVENTS)[number]
 /**
  * The events something in the server actually emits today.
  *
- * Kept as an explicit list rather than inferred from the prefix, since the comment events have no
- * emit point yet. Add an event here when you add its `emit()` call.
+ * Kept as an explicit list rather than inferred from `HOOK_EVENTS`, so that an event declared ahead of
+ * the thing that raises it is visibly not raised yet. Add an event here when you add its `emit()`
+ * call.
  */
 export const EMITTED_EVENTS: HookEvent[] = [
   'page:create',
@@ -43,6 +44,9 @@ export const EMITTED_EVENTS: HookEvent[] = [
   'asset:edit',
   'asset:rename',
   'asset:delete',
+  'comment:new',
+  'comment:edit',
+  'comment:delete',
   'user:join',
   'user:login',
   'user:logout'
