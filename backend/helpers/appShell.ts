@@ -29,8 +29,10 @@ import { htmlEscape, isPageUrl, normalizePagePath, originOf, splitLocalePath } f
  *
  * Two further rules hold across both:
  *
- *  - **Nothing is rendered, and nothing runs.** The injected copy is the stored render with its
- *    scripts and styles taken out — see `stripActiveMarkup`.
+ *  - **No page content is rendered, and none of it runs.** The copy of the page is the stored render
+ *    with its scripts and styles taken out — see `stripActiveMarkup`. The site's own code injection
+ *    is the one thing in the document that is meant to run, and it is an administrator's markup
+ *    rather than an author's — see `codeInjection`.
  *  - **Nothing a requester holds reaches the cache.** Only the public half is cached, keyed by origin
  *    and path with no session dimension, because there is nothing in it that varies by requester.
  */
@@ -431,10 +433,39 @@ async function fragmentsForBrowser(
 }
 
 /**
+ * What the site's own **Admin → Theme → Code Injection** boxes put into every document.
+ *
+ * `injectHead`, `injectCSS` and `injectBody` are an administrator's own markup, and they are served
+ * exactly as written: that is the whole of the feature. It is what an analytics snippet, a status
+ * banner, a consent widget or a stylesheet override is, and each of those only works if the bytes
+ * reaching the browser are the bytes that were typed. Only `manage:theme` can set them.
+ *
+ * Not part of the enriched fragments above, and deliberately so. Those describe the page at the URL
+ * and differ per requester; this is the same markup for every document the site serves, so it does
+ * not belong in the per-URL cache — and putting it here is also what makes it reach a request that
+ * took neither of those paths, such as one whose page lookup threw.
+ *
+ * Nothing is sanitized and nothing is minified. There is no trust boundary to enforce: an account
+ * holding `manage:theme` can already reshape the site, and a sanitizer would silently remove the
+ * `<script>` tag every analytics snippet consists of.
+ */
+function codeInjection(siteConfig: any): { head: string; body: string } {
+  const theme = siteConfig?.theme
+  const css: string = theme?.injectCSS?.trim() ?? ''
+  return {
+    head: [theme?.injectHead?.trim() ?? '', css ? `<style>\n${css}\n  </style>` : '']
+      .filter(Boolean)
+      .join('\n  '),
+    body: theme?.injectBody?.trim() ?? ''
+  }
+}
+
+/**
  * The document to answer a request for the app shell with.
  *
  * Every request gets a head describing the page at its URL; which page that is, and what else travels
- * with it, is what `fragmentsForCrawler` and `fragmentsForBrowser` differ about.
+ * with it, is what `fragmentsForCrawler` and `fragmentsForBrowser` differ about. The site's own code
+ * injection is added to both, after them, so an administrator's snippet can override what they set.
  *
  * Only the public half is cached, and the shell is never cached: the shell is re-read per request so
  * that `npm run build` in `frontend/` takes effect immediately, which a cached whole document would
@@ -453,15 +484,17 @@ export async function renderAppShell(
   const fragments = isAnonymous(req)
     ? await publicFragments(req, siteId, urlPath)
     : await fragmentsForBrowser(req, siteId, urlPath)
+  const injected = codeInjection(siteId ? WIKI.sites[siteId]?.config : undefined)
 
   /*
     The head replaces the shell's own `<title>` where there is one and is appended to its `<head>`
     where there is not, so that a shell built without one is enriched rather than silently skipped.
   */
   const withoutTitle = shell.replace(/[ \t]*<title>[\s\S]*?<\/title>\n?/i, '')
+  const head = [fragments.head, injected.head].filter(Boolean).join('\n  ')
   const html = withoutTitle
-    .replace('</head>', () => `  ${fragments.head}\n  </head>`)
-    .replace('</body>', () => `${fragments.body}</body>`)
+    .replace('</head>', () => `  ${head}\n  </head>`)
+    .replace('</body>', () => `${fragments.body}${injected.body}</body>`)
 
   return { html, status: fragments.status, robots: fragments.robots }
 }
