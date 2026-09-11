@@ -541,8 +541,15 @@ export const usePageStore = defineStore('page', {
      *
      * Nothing is written here. What comes back from the dialog is where the copy should go, and the
      * editor opens on an unsaved page -- so a duplicate nobody saves never existed.
+     *
+     * Also what starting a page FROM a template is: the same read of the same source, picked from the
+     * other end -- the new page menu asks which page to start from instead of the page asking where to
+     * put its copy. That caller passes no `title` and no `path`, so the copy arrives untitled at the
+     * folder being browsed, and the author names it on the way to saving.
+     *
+     * @param basePath Folder the copy goes in when no `path` is given, as `pageCreate` reads it.
      */
-    async pageDuplicate({ sourcePageId, title, path, locale }) {
+    async pageDuplicate({ sourcePageId, title, path, basePath, locale }) {
       const siteStore = useSiteStore()
       try {
         const pageData = await API_CLIENT.get(
@@ -552,10 +559,20 @@ export const usePageStore = defineStore('page', {
         if (!pageData?.id) {
           throw new Error('ERR_PAGE_NOT_FOUND')
         }
+        /*
+          Absent rather than empty means the server withheld the source, as it does for a page this
+          requester may not open the editor on. Taking the reply anyway would open the editor on an
+          empty page and call it a copy, so this refuses instead and the caller says why.
+          `pageLoadSource` draws the same line off the same field.
+        */
+        if (!Object.hasOwn(pageData, 'content')) {
+          throw new Error('ERR_PAGE_SOURCE_UNAVAILABLE')
+        }
         await this.pageCreate({
           editor: pageData.editor,
           title,
           path,
+          basePath,
           // -> A copy may be made in another locale, which is how a translation starts: the same page
           //    at the same path, in a locale that does not have it yet
           locale,
