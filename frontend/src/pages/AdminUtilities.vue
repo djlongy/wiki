@@ -59,7 +59,8 @@
                 flat
                 icon="la:arrow-circle-right"
                 color="primary"
-                disabled
+                :loading="state.exporting"
+                @click="exportContent"
                 :label="t(`common.actions.proceed`)" />
             </w-item-section>
           </w-item>
@@ -108,7 +109,8 @@
                 flat
                 icon="la:arrow-circle-right"
                 color="primary"
-                disabled
+                :loading="state.importing"
+                @click="importContent"
                 :label="t(`common.actions.proceed`)" />
             </w-item-section>
           </w-item>
@@ -234,6 +236,7 @@
 <script setup>
 import { computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { fileOpen, fileSave } from 'browser-fs-access'
 
 import { useMeta } from '@/composables/meta'
 import { notify } from '@/composables/notify'
@@ -266,7 +269,9 @@ useMeta(() => ({
 const state = reactive({
   purgeHistoryTimeframe: '1y',
   /** Shared by both sample-content buttons: neither should be pressable while the other is running. */
-  sampleLoading: false
+  sampleLoading: false,
+  exporting: false,
+  importing: false
 })
 
 // COMPUTED
@@ -644,6 +649,107 @@ async function purgeSampleContent() {
       })
     }
     state.sampleLoading = false
+  })
+}
+
+/**
+ * Download every page and asset of the current site as one tarball.
+ *
+ * Content and nothing else: the archive is the folder a local storage target would write, so it is
+ * readable by anything that reads a tree of markdown, and it carries no history, users, groups or
+ * settings — a database dump is what holds those. Not confirmed, since it only reads.
+ *
+ * No timeout, unlike every other call on this page. ky gives a request ten seconds by default, and a
+ * site of any size takes longer than that to walk and compress — the server streams the archive as it
+ * builds it, so the wait is the download rather than a request that has stalled.
+ */
+async function exportContent() {
+  state.exporting = true
+  try {
+    const blob = await API_CLIENT.get(`sites/${adminStore.currentSiteId}/content/export`, {
+      timeout: false
+    }).blob()
+    const stamp = Temporal.Now.instant().toString({ smallestUnit: 'second' }).replaceAll(':', '-')
+    await fileSave(blob, {
+      fileName: `content-${stamp}.tar.gz`,
+      extensions: ['.gz']
+    })
+    notify({
+      type: 'positive',
+      message: t('admin.utilities.exportSuccess', { site: siteName.value })
+    })
+  } catch (err) {
+    // -> Dismissing the save picker is not a failure, as in the audit log export
+    if (err.name !== 'AbortError') {
+      notify({
+        type: 'negative',
+        message: t('admin.utilities.exportFailed'),
+        caption: apiErrorMessage(err)
+      })
+    }
+  }
+  state.exporting = false
+}
+
+/**
+ * Add the content of a tarball to the current site.
+ *
+ * Confirmed rather than run on the file being chosen, because the destination is not obvious from a
+ * file picker: what is imported goes into the site the admin area is currently on, and the
+ * confirmation names both it and the file. What the confirmation does NOT have to warn about is loss
+ * — nothing already on the site is replaced — which is why it is not coloured as a destruction.
+ */
+async function importContent() {
+  let file
+  try {
+    file = await fileOpen({
+      extensions: ['.gz', '.tgz', '.tar'],
+      description: 'Content archive'
+    })
+  } catch (err) {
+    // -> The picker was dismissed
+    if (err.name !== 'AbortError') {
+      notify({
+        type: 'negative',
+        message: t('admin.utilities.importFailed'),
+        caption: apiErrorMessage(err)
+      })
+    }
+    return
+  }
+
+  confirm({
+    title: t('admin.utilities.import'),
+    message: t('admin.utilities.importConfirm', { file: file.name, site: siteName.value }),
+    caption: t('admin.utilities.importConfirmWarn'),
+    cancel: true,
+    persistent: true,
+    okLabel: t('common.actions.proceed')
+  }).onOk(async () => {
+    state.importing = true
+    try {
+      const resp = await API_CLIENT.post(`sites/${adminStore.currentSiteId}/content/import`, {
+        body: file,
+        // -> The body is the archive itself rather than a form, and the type has to be set here: a
+        //    File picked from disk carries whatever type the browser guessed, including none
+        headers: { 'content-type': 'application/gzip' },
+        timeout: false
+      }).json()
+      if (!resp?.ok) {
+        throw new Error(resp?.message || 'An unexpected error occured.')
+      }
+      notify({
+        type: resp.failed > 0 ? 'warning' : 'positive',
+        message: resp.message
+      })
+    } catch (err) {
+      notify({
+        type: 'negative',
+        message: t('admin.utilities.importFailed'),
+        caption: apiErrorMessage(err)
+      })
+    }
+    state.importing = false
   })
 }
 
