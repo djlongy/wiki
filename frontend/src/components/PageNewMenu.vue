@@ -15,6 +15,12 @@
         <blueprint-icon :icon="EDITOR_ICONS[editor]" />
         <w-item-section class="pr-2">{{ t(`common.createPage.${editor}`) }}</w-item-section>
       </w-item>
+      <!-- -> Not one of the entries above, because it does not pick an editor: the page being copied
+              decides which one opens, so it is offered whatever the site has turned on -->
+      <w-item clickable @click="createFromTemplate">
+        <blueprint-icon icon="resume-template" />
+        <w-item-section class="pr-2">{{ t('common.createPage.fromTemplate') }}</w-item-section>
+      </w-item>
       <template v-if="props.hideAssetBtn === false">
         <w-separator class="my-2" inset />
         <w-item clickable @click="openFileManager">
@@ -34,9 +40,13 @@
 </template>
 
 <script setup>
+import { defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { dialog } from '@/composables/dialog'
 import { loading } from '@/composables/loading'
+import { notify } from '@/composables/notify'
+import { apiErrorMessage } from '@/helpers/apiError'
 
 import { useEditorStore } from '@/stores/editor'
 import { usePageStore } from '@/stores/page'
@@ -118,4 +128,48 @@ function openFileManager() {
 function newFolder() {
   emit('newFolder')
 }
+
+/**
+ * Start a page from an existing one -- v2's "From Template", which is a copy made from the other end:
+ * the browser asks which page to start from rather than where to put a copy of the page in hand.
+ *
+ * Nothing is written until the author saves, and the source is read through the ordinary page route,
+ * so a page whose source this reader may not see cannot be copied -- the store refuses and the reason
+ * is said here rather than an empty editor being opened.
+ */
+function createFromTemplate() {
+  dialog({
+    component: defineAsyncComponent(() => import('@/components/TreeBrowserDialog.vue')),
+    componentProps: {
+      mode: 'pickPage',
+      folderPath: '',
+      locale: props.locale
+    }
+  }).onOk(async (source) => {
+    loading.show()
+    try {
+      await pageStore.pageDuplicate({
+        sourcePageId: source.id,
+        // -> Where the menu was opened, not where the template was found: browsing to another folder
+        //    or locale to pick one says nothing about where the new page belongs
+        basePath: props.basePath,
+        locale: props.locale
+      })
+      // -> Only once the editor is actually open, as the File Manager's own copy action does: this
+      //    closes whatever overlay the menu was in, and closing it over a failed copy strands the reason
+      emit('newPage')
+    } catch (err) {
+      notify({
+        type: 'negative',
+        message: 'Failed to start a page from this template.',
+        caption:
+          err.message === 'ERR_PAGE_SOURCE_UNAVAILABLE'
+            ? t('pageSource.unavailable')
+            : apiErrorMessage(err, 'An unexpected error occured.')
+      })
+    }
+    loading.hide()
+  })
+}
+
 </script>

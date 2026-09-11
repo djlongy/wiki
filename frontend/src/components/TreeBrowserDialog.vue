@@ -82,7 +82,7 @@
         </div>
       </div>
       <div class="page-save-dialog-path font-robotomono">{{ currentFolderPath }}</div>
-      <w-list class="py-2" v-if="!isFolderMode">
+      <w-list class="py-2" v-if="!isFolderMode && !isPagePickMode">
         <!--
           A folder is named twice over -- what it is called, and the segment its children's paths are
           built from -- so a copy asks for both, the way the create and rename dialogs do. The path
@@ -176,7 +176,7 @@
           @click="onDialogCancel" />
         <w-btn
           icon="la:check"
-          :label="t(`common.actions.save`)"
+          :label="t(isPagePickMode ? `common.actions.select` : `common.actions.save`)"
           unelevated
           color="primary"
           padding="xs md"
@@ -290,6 +290,9 @@ const header = computed(() => {
     case 'duplicatePage': {
       return { icon: 'img:/_assets/icons/color-documents.svg', title: 'pageDuplicateDialog.title' }
     }
+    case 'pickPage': {
+      return { icon: 'img:/_assets/icons/color-documents.svg', title: 'pageTemplateDialog.title' }
+    }
     case 'renamePage': {
       return { icon: 'img:/_assets/icons/fluent-rename.svg', title: 'pageRenameDialog.title' }
     }
@@ -319,6 +322,13 @@ const isAssetMode = computed(() => props.mode === 'renameAsset')
 const isFolderMode = computed(() => props.mode === 'moveFolder')
 
 /**
+ * Whether this is picking an existing page and nothing else -- which page to start a new one from. The
+ * only mode whose answer is a page rather than somewhere to put one, so the fields below the browser
+ * have nothing to ask and the file list is the whole of the form.
+ */
+const isPagePickMode = computed(() => props.mode === 'pickPage')
+
+/**
  * Whether a folder is being copied, which asks for a destination AND a name: the copy is a new folder
  * and needs one of its own, defaulted to the source's with `copy` on the end.
  */
@@ -346,7 +356,11 @@ const currentFolderPath = computed(() => {
 })
 
 const files = computed(() => {
-  return state.fileList.map((f) => {
+  // -> A redirection is a target rather than a body, so there is nothing in one to start a page from
+  const list = isPagePickMode.value
+    ? state.fileList.filter((f) => f.pageType !== 'redirect')
+    : state.fileList
+  return list.map((f) => {
     switch (f.type) {
       case 'folder': {
         f.icon = fileTypes.folder.icon
@@ -396,6 +410,19 @@ function onPathFocus() {
 }
 
 async function save() {
+  /*
+    Picking a page hands back which page and stops there. What the caller does with it is the caller's
+    -- copying its source into a new one, in the only mode that asks this -- so there is nothing here
+    to name, slug or check beyond having been given an answer at all.
+  */
+  if (isPagePickMode.value) {
+    if (!state.currentFileId) {
+      notify({ type: 'negative', message: t('pageTemplateDialog.sourceMissing') })
+      return
+    }
+    onDialogOK({ id: state.currentFileId, locale: state.locale })
+    return
+  }
   // -> Nothing to validate: the destination is whatever folder the browser is open on, and the site
   //    root is a real answer
   if (isFolderMode.value) {
@@ -687,7 +714,8 @@ onMounted(async () => {
   }
   switch (props.mode) {
     case 'savePage':
-    case 'duplicatePage': {
+    case 'duplicatePage':
+    case 'pickPage': {
       state.typesToFetch = ['folder', 'page']
       break
     }
