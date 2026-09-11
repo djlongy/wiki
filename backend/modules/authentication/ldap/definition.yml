@@ -61,7 +61,7 @@ props:
   tlsCertPath:
     type: String
     title: TLS Certificate Path
-    hint: (optional) Absolute path, on the server, to the PEM certificate authority to trust in addition to the system's own. For a directory using an internal CA.
+    hint: (optional) Absolute path, on the server, to the PEM certificate authority to trust instead of the system's own — set it and only this file is trusted for the connection, which is what pins the directory to an internal CA. Leave it empty to use the system's trust store. Include the whole chain up to the root when the directory's certificate is cross-signed.
     icon: fingerprint-scan
     order: 8
   mappingUID:
