@@ -118,6 +118,24 @@ class Navigation {
   }
 
   /**
+   * Replace the items of a site-wide menu, addressed by the locale it is the menu for.
+   *
+   * What the admin area's navigation screen saves. Nothing in the tree moves: this menu is the one
+   * every page in the locale already falls back to, so no entry changes mode and none is repointed —
+   * which is the whole difference from `updateNavigation`, where the items are a side effect of
+   * saying how one page resolves its sidebar.
+   *
+   * @returns The id of the menu written, which the caller needs to redraw a sidebar showing it
+   */
+  async setSiteNav(siteId: string, locale: string, items: NavigationItem[]): Promise<string> {
+    // -> Creates the menu if this locale has never had one, which is the case for a locale activated
+    //    after the site was made and not yet written in
+    const id = await this.siteNavId(siteId, locale)
+    await WIKI.db.update(navigationTable).set({ items }).where(eq(navigationTable.id, id))
+    return id
+  }
+
+  /**
    * Drop the menus belonging to tree entries that no longer exist.
    *
    * A menu is keyed by the id of the entry that owns it, so deleting a page or a folder would

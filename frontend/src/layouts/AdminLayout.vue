@@ -197,7 +197,6 @@
             <w-item
               :to="`/_admin/` + adminStore.currentSiteId + `/navigation`"
               active-class="bg-primary text-white"
-              disabled
               v-if="
                 flagsStore.experimental &&
                 (userStore.can(`manage:sites`) || userStore.can(`manage:navigation`))
@@ -504,6 +503,12 @@ const overlays = {
   }),
   GroupEditOverlay: defineAsyncComponent({
     loader: () => import('../components/GroupEditOverlay.vue'),
+    loadingComponent: LoadingGeneric
+  }),
+  // -> The same editor the sidebar's Edit Nav menu opens, on the site-wide menu of one locale rather
+  //    than on a page's. See `NavEditOverlay`'s `host`, which is how it tells the two apart.
+  NavEdit: defineAsyncComponent({
+    loader: () => import('../components/NavEditOverlay.vue'),
     loadingComponent: LoadingGeneric
   }),
   // MailTemplateEditorOverlay: defineAsyncComponent({ loader: () => import('../components/MailTemplateEditorOverlay.vue'), loadingComponent: LoadingGeneric }),

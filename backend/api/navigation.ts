@@ -37,12 +37,35 @@ function canManageNavigation(req: FastifyRequest): boolean {
 }
 
 /**
+ * Whether this site offers the locale a site-wide menu is being addressed by.
+ *
+ * A site-wide menu is created on demand, so an unchecked locale would let any string mint a row that
+ * no page can ever resolve to. The list is the site's own active set, since that is what decides
+ * which menus a reader can be shown.
+ */
+function isActiveLocale(siteId: string, locale: string): boolean {
+  const active = WIKI.sites[siteId]?.config?.locales?.active
+  return Array.isArray(active) && active.includes(locale)
+}
+
+/**
  * Navigation API Routes
  *
  * A menu belongs to a tree entry that overrides it, or to the site itself for the one every page falls
- * back to — both addressed by the same id, which is why there is a single route to read one.
+ * back to — both addressed by the same id, which is why there is a single route to read one. The
+ * site-wide menu is addressed by its LOCALE as well, because the admin area edits it with no page
+ * open to resolve an id from.
  */
 async function routes(app: FastifyInstance) {
+  const siteLocaleParams = {
+    type: 'object',
+    properties: {
+      siteId: { type: 'string', format: 'uuid' },
+      locale: { type: 'string', maxLength: 255 }
+    },
+    required: ['siteId', 'locale']
+  }
+
   /**
    * GET NAVIGATION
    */
@@ -96,6 +119,111 @@ async function routes(app: FastifyInstance) {
         userGroups: req.session?.authenticated ? (req.session.groups ?? []) : [],
         unfiltered
       })
+    }
+  )
+
+  /**
+   * GET THE SITE-WIDE MENU OF A LOCALE
+   */
+  app.get<{ Params: { siteId: string; locale: string } }>(
+    '/sites/:siteId/navigation/site/:locale',
+    {
+      config: {
+        permissions: ['manage:navigation']
+      },
+      schema: {
+        summary: 'Get the site-wide menu of one locale',
+        description:
+          'The id of the menu every page in this locale falls back to, which is what the admin area edits.\n\nCreated empty if the locale has never had one, so this always names a menu. Read the items with `navigation/{navId}`; write them back with the matching PUT.',
+        tags: ['Navigation'],
+        params: siteLocaleParams,
+        response: {
+          200: {
+            description: 'The site-wide menu',
+            type: 'object',
+            properties: {
+              navigationId: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    async (req, reply) => {
+      if (!isActiveLocale(req.params.siteId, req.params.locale)) {
+        return reply.badRequest('This site has no active locale by that name.')
+      }
+      return {
+        navigationId: await WIKI.models.navigation.siteNavId(req.params.siteId, req.params.locale)
+      }
+    }
+  )
+
+  /**
+   * UPDATE THE SITE-WIDE MENU OF A LOCALE
+   */
+  app.put<{ Params: { siteId: string; locale: string }; Body: { items: NavigationItem[] } }>(
+    '/sites/:siteId/navigation/site/:locale',
+    {
+      config: {
+        permissions: ['manage:navigation']
+      },
+      schema: {
+        summary: 'Set the items of the site-wide menu of one locale',
+        description:
+          'Replaces the items of the menu every page in this locale falls back to.\n\nOnly the menu moves: no tree entry changes the mode it resolves its sidebar by, and none is repointed — which is what separates this from `navigation/pages/{pageId}`, where the items ride along with a mode. Pages that override or hide keep doing so.',
+        tags: ['Navigation'],
+        params: siteLocaleParams,
+        body: {
+          type: 'object',
+          required: ['items'],
+          properties: {
+            items: {
+              type: 'array',
+              items: {
+                ...navigationItem,
+                properties: {
+                  ...navigationItem.properties,
+                  children: { type: 'array', items: navigationItem }
+                }
+              }
+            }
+          }
+        },
+        response: {
+          200: {
+            description: 'Navigation updated successfully',
+            type: 'object',
+            properties: {
+              ok: { type: 'boolean' },
+              message: { type: 'string' },
+              navigationId: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    async (req, reply) => {
+      if (!isActiveLocale(req.params.siteId, req.params.locale)) {
+        return reply.badRequest('This site has no active locale by that name.')
+      }
+      const navigationId = await WIKI.models.navigation.setSiteNav(
+        req.params.siteId,
+        req.params.locale,
+        req.body.items
+      )
+      // -> Which menu and how many items, not the tree itself — same reasoning as the page route below
+      await audit(req, 'admin', 'updateSiteNavigation', {
+        siteId: req.params.siteId,
+        locale: req.params.locale,
+        navigationId,
+        itemCount: req.body.items.length
+      })
+
+      return {
+        ok: true,
+        message: 'Navigation updated successfully.',
+        navigationId
+      }
     }
   )
 
