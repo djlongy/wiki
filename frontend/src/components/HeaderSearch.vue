@@ -85,7 +85,9 @@
           <div class="searchpanel-header">
             <span>Popular Tags</span>
             <w-space />
-            <w-btn class="acrylic-btn" flat label="View All" size="xs" />
+            <!-- -> The way to the tags page from anywhere: this header is on every screen the wiki
+                    serves. The button was drawn with no handler, so it did nothing at all. -->
+            <w-btn class="acrylic-btn" flat label="View All" size="xs" to="/_tags" />
           </div>
           <div class="mb-4 flex flex-wrap gap-1">
             <w-chip

@@ -226,7 +226,6 @@
             <w-item
               :to="`/_admin/` + adminStore.currentSiteId + `/tags`"
               active-class="bg-primary text-white"
-              disabled
               v-if="flagsStore.experimental && userStore.can(`manage:sites`)">
               <w-item-section avatar>
                 <w-icon name="img:/_assets/icons/fluent-tag.svg" />

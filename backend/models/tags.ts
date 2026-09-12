@@ -1,9 +1,18 @@
 import { sql } from 'drizzle-orm'
 import type { AccessActor } from './groups.ts'
+import type { PageActor } from './pages.ts'
 
 export interface Tag {
   tag: string
   usageCount: number
+}
+
+/** What a rename or a delete across pages did, per page it found. */
+export interface TagChange {
+  /** Pages whose tag list was rewritten. */
+  updated: number
+  /** Pages carrying the tag that the actor may not write, and which were therefore left alone. */
+  skipped: number
 }
 
 /**
@@ -74,6 +83,70 @@ class Tags {
       .map(([tag, usageCount]) => ({ tag, usageCount }))
       .sort((a, b) => b.usageCount - a.usageCount || a.tag.localeCompare(b.tag))
       .slice(0, limit)
+  }
+
+  /**
+   * Rename a tag across every page carrying it, or take it off them.
+   *
+   * The only two things a tag can be administered as: it has no row of its own to edit, so there is
+   * nothing else about it to change. `to` of null is the delete.
+   *
+   * One page at a time through `updatePage` rather than one statement against `pages.tags`, for the
+   * reason `deletePagesByTag` takes the same route: a tag is mirrored onto `tree.tags`, a change to a
+   * page is a history version, and the page's stored copy carries its tags in front matter. A bulk
+   * `UPDATE` would write the column and leave all three behind.
+   *
+   * Checked per page rather than once for the caller, because `manage:pages` at the route says only
+   * that this is an administrative action -- which pages it may actually rewrite is a page rule, the
+   * same question `write:pages` answers everywhere else. A page the actor may not write is left
+   * exactly as it was and counted, so the caller is told the rename was partial rather than being
+   * shown a number that quietly means something narrower than "all of them".
+   *
+   * @param from The tag as it is now
+   * @param to What to call it instead, or null to remove it
+   * @returns What changed, or null if no page carries the tag at all
+   */
+  async renameTag(
+    siteId: string,
+    from: string,
+    to: string | null,
+    actor: PageActor & AccessActor
+  ): Promise<TagChange | null> {
+    const result = await WIKI.db.execute(sql`
+      SELECT id, path, locale, tags
+      FROM pages
+      WHERE "siteId" = ${siteId} AND tags @> ARRAY[${from}]::text[]
+    `)
+    const rows = ((result.rows ?? result) as any[]).map((row) => ({
+      id: row.id as string,
+      path: row.path as string,
+      locale: row.locale as string,
+      tags: (row.tags ?? []) as string[]
+    }))
+    if (rows.length < 1) {
+      return null
+    }
+
+    const change: TagChange = { updated: 0, skipped: 0 }
+    for (const page of rows) {
+      if (!WIKI.models.groups.checkAccess(actor, 'write:pages', page)) {
+        change.skipped++
+        continue
+      }
+      /*
+        A Set, because the new name may already be on the page: `alpha` renamed to `beta` on a page
+        carrying both has to leave one `beta`, not two. Order is otherwise the page's own, so a rename
+        does not silently reshuffle a tag list nobody asked it to touch.
+      */
+      const next = new Set(page.tags)
+      next.delete(from)
+      if (to !== null) {
+        next.add(to)
+      }
+      await WIKI.models.pages.updatePage(siteId, page.id, { tags: [...next] }, actor)
+      change.updated++
+    }
+    return change
   }
 
   /**

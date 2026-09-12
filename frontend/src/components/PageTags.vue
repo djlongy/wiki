@@ -168,17 +168,20 @@ function createTag(val) {
 }
 
 /**
- * Search the site for everything carrying this tag.
+ * Browse everything carrying this tag.
  *
- * As a `#tag` token in the query rather than as a parameter of its own, because that is how the search
- * page states a tag filter: it reads them back out of `q` to fill its own tag selector, so arriving
- * this way leaves the reader on a search they can widen or narrow from there.
+ * To the tags page rather than to `/_search?q=#tag`, which is where this went before there was one.
+ * Both list the same pages -- the search screen treats a query of nothing but tags as a browse -- but
+ * they answer different questions. A reader clicking a tag at the foot of a page is asking what else
+ * is about this, and the tags page opens on that with every other tag beside it to widen the selection
+ * with. The search screen answers it inside a form built for narrowing a text search: a sort order, a
+ * path filter, an editor and a publish state, none of which that reader came for.
  *
  * Only reachable in view mode -- WChip emits `click` only while `clickable`, which the editing chips
  * are not, their control being the remove button instead.
  */
 function searchTag(tag) {
-  router.push({ path: '/_search', query: { q: `#${tag}` } })
+  router.push({ path: '/_tags', query: { tags: tag } })
 }
 
 function removeTag(tag) {
