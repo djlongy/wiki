@@ -62,6 +62,20 @@ function callbackUrl(req: FastifyRequest, strategyId: string): string {
 }
 
 /**
+ * A destination on this wiki, or the site root.
+ *
+ * A leading slash is not enough on its own: `//host` and `/\host` are how a browser reads a
+ * protocol-relative URL, so both send the reader off this wiki while passing for a path. A login
+ * screen that forwards to an attacker's copy of itself is the whole point of an open redirect,
+ * which is why this is unconditional rather than an option — a wiki with it off has nothing to
+ * gain.
+ */
+function localPath(input: string | undefined): string {
+  const candidate = input ?? ''
+  return candidate.startsWith('/') && !/^\/[/\\]/.test(candidate) ? candidate : '/'
+}
+
+/**
  * The login screen, carrying what went wrong.
  *
  * A redirect login fails at the provider or on the way back, where there is no request left to answer
@@ -1205,7 +1219,7 @@ async function routes(app: FastifyInstance) {
         nonce: nanoid(32),
         codeVerifier: nanoid(64),
         // -> Only a path on this wiki: an open redirect is how a login page is turned into a lure
-        redirect: (req.query.redirect ?? '').startsWith('/') ? req.query.redirect! : '/',
+        redirect: localPath(req.query.redirect),
         startedAt: Temporal.Now.instant().toString({ smallestUnit: 'millisecond' })
       }
       req.session.authFlow = flow

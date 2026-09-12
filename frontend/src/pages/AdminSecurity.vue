@@ -101,21 +101,6 @@
           </w-item>
           <w-separator class="my-2" inset />
           <w-item tag="label">
-            <blueprint-icon icon="curly-arrow" />
-            <w-item-section>
-              <w-item-label>{{ t(`admin.security.disallowOpenRedirect`) }}</w-item-label>
-              <w-item-label caption>{{
-                t(`admin.security.disallowOpenRedirectHint`)
-              }}</w-item-label>
-            </w-item-section>
-            <w-item-section avatar>
-              <w-toggle
-                v-model="state.config.disallowOpenRedirect"
-                :aria-label="t(`admin.security.disallowOpenRedirect`)" />
-            </w-item-section>
-          </w-item>
-          <w-separator class="my-2" inset />
-          <w-item tag="label">
             <blueprint-icon icon="download-from-cloud" />
             <w-item-section>
               <w-item-label>{{ t(`admin.security.forceAssetDownload`) }}</w-item-label>
@@ -294,8 +279,6 @@
                   </w-card-section>
                   <w-card-section class="text-caption">
                     <div>{{ t('admin.security.uploadsInfo') }}</div>
-                    <!-- Saved, but nothing reads them: there is no upload endpoint yet -->
-                    <div class="mt-1">{{ t('admin.security.uploadsNotEnforced') }}</div>
                   </w-card-section>
                 </w-card-section>
               </w-card>
@@ -317,22 +300,6 @@
                 v-model.number="state.humanUploadMaxFileSize"
                 dense
                 :aria-label="t(`admin.security.maxUploadSize`)" />
-            </w-item-section>
-          </w-item>
-          <w-separator class="my-2" inset />
-          <w-item>
-            <blueprint-icon icon="upload-to-ftp" />
-            <w-item-section>
-              <w-item-label>{{ t(`admin.security.maxUploadBatch`) }}</w-item-label>
-              <w-item-label caption>{{ t(`admin.security.maxUploadBatchHint`) }}</w-item-label>
-            </w-item-section>
-            <w-item-section style="flex: 0 0 200px">
-              <w-input
-                outlined
-                v-model.number="state.config.uploadMaxFiles"
-                dense
-                :suffix="t(`admin.security.maxUploadBatchSuffix`)"
-                :aria-label="t(`admin.security.maxUploadBatch`)" />
             </w-item-section>
           </w-item>
           <w-separator class="my-2" inset />
@@ -455,7 +422,6 @@ const state = reactive({
     corsMode: 'OFF',
     cspDirectives: '',
     disallowIframe: false,
-    disallowOpenRedirect: false,
     enforceCsp: false,
     enforceHsts: false,
     enforceSameOriginReferrerPolicy: false,
@@ -467,7 +433,6 @@ const state = reactive({
     authRateLimitWindow: '5m',
     authRateLimitBan: '15m',
     uploadMaxFileSize: 0,
-    uploadMaxFiles: 0,
     uploadScanSVG: false
   },
   humanUploadMaxFileSize: '0'
