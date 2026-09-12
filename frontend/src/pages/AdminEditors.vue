@@ -172,6 +172,12 @@ const editors = reactive([
   },
   {
     id: 'wysiwyg',
+    /*
+      Revealed only with the experimental flag, which is a holding position rather than a verdict: the
+      editor works, but a page written with it is stored as HTML and lands in a git storage target as
+      `<path>.html` instead of markdown. Turning it on is therefore a decision about the wiki's content,
+      and the flag is what keeps it a deliberate one.
+    */
     icon: 'google-presentation',
     isDisabled: true,
     useRendering: true

@@ -1,6 +1,13 @@
 <template>
   <w-menu class="translucent-menu" auto-close anchor="bottom right" self="top right">
     <w-list padding>
+      <!--
+        Still behind the experimental flag, and deliberately so while a decision is outstanding rather
+        than because the editor does not work. A page written with it is stored as HTML and reaches a
+        git storage target as `<path>.html` rather than as markdown, which is a choice about this
+        wiki's content and not one an editor should make for its owner by appearing in this menu. See
+        the note at the top of `EditorWysiwyg.vue`.
+      -->
       <w-item
         clickable
         @click="create(`wysiwyg`)"
