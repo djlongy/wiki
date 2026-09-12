@@ -69,9 +69,14 @@ function callbackUrl(req: FastifyRequest, strategyId: string): string {
  * screen that forwards to an attacker's copy of itself is the whole point of an open redirect,
  * which is why this is unconditional rather than an option — a wiki with it off has nothing to
  * gain.
+ *
+ * Tab, newline and carriage return are stripped from a URL before it is parsed, so `/\t/host`
+ * passes a leading-slash test here and reaches the browser as `//host`. The stripped form is both
+ * what is judged and what is returned, so the value that goes into the header is the one that was
+ * checked.
  */
 function localPath(input: string | undefined): string {
-  const candidate = input ?? ''
+  const candidate = (input ?? '').replaceAll(/[\t\n\r]/g, '')
   return candidate.startsWith('/') && !/^\/[/\\]/.test(candidate) ? candidate : '/'
 }
 
