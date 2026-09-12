@@ -45,13 +45,10 @@ export async function registerSchemas(app: FastifyInstance): Promise<void> {
         type: 'boolean',
         description: '`Referrer-Policy: same-origin` when on, `no-referrer` when off.'
       },
-      disallowOpenRedirect: {
-        type: 'boolean',
-        description: 'Stored, but nothing redirects on user input yet.'
-      },
       forceAssetDownload: {
         type: 'boolean',
-        description: 'Stored, but asset serving is not implemented yet.'
+        description:
+          '`Content-Disposition: attachment` on every asset when on. When off, only the types a browser may render in place are served inline.'
       },
       trustProxy: {
         type: 'boolean',
@@ -60,16 +57,13 @@ export async function registerSchemas(app: FastifyInstance): Promise<void> {
       uploadMaxFileSize: {
         type: 'integer',
         minimum: 1,
-        description: 'Bytes. Stored, but there is no upload endpoint yet.'
-      },
-      uploadMaxFiles: {
-        type: 'integer',
-        minimum: 1,
-        description: 'Stored, but there is no upload endpoint yet.'
+        description:
+          "Bytes. The upload route's body limit, fixed when the route is registered — a change takes effect on the next restart."
       },
       uploadScanSVG: {
         type: 'boolean',
-        description: 'Stored, but there is no upload endpoint yet.'
+        description:
+          'Whether an uploaded SVG carrying a script element, an event handler attribute, a `javascript:` target or a `foreignObject` is refused with a 400. SVG is served inline, so such a file runs when a browser opens its URL.'
       },
       authRateLimitEnabled: {
         type: 'boolean',
