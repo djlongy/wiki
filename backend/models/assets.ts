@@ -163,6 +163,38 @@ function extensionOf(fileName: string): string {
 }
 
 /**
+ * Markup that runs on its own when a browser opens the file: a `script` element with or without a
+ * namespace prefix, an event handler attribute, a `javascript:` target, or a `foreignObject`, which
+ * is the door SVG leaves open to arbitrary XHTML.
+ *
+ * A scan of the bytes, so it sees what an XML parser would only after resolving entities: an
+ * attribute VALUE spelled `&#106;avascript:` gets past it. Those need a click, whereas the two this
+ * does catch run on their own, which is the difference that decides what the setting is worth.
+ */
+const SVG_ACTIVE_CONTENT =
+  /<\s*[\w.:-]*script[\s/>]|\son[a-z]+\s*=|javascript:|<\s*[\w.:-]*foreignObject[\s/>]/i
+
+/**
+ * Whether an upload is an SVG carrying markup that would run when it is opened, for the
+ * `uploadScanSVG` security setting.
+ *
+ * Judged on the extension the file will be STORED under, because that is what decides the type it
+ * is served with and whether it is served inline at all — `svg` is in `INLINE_EXTS`, so a browser
+ * following its URL renders it and runs what is inside. The same bytes under another name are
+ * served as that other type and are not a script.
+ *
+ * Refused rather than stripped, which the setting's label now says: a sanitizer passes through
+ * whatever its allow-list has not heard of and the file is still served inline afterwards, whereas
+ * one that was never stored has no URL to be opened at.
+ */
+export function svgUploadIsUnsafe(fileName: string, data: Buffer): boolean {
+  return (
+    extensionOf(sanitizeFileName(fileName)) === 'svg' &&
+    SVG_ACTIVE_CONTENT.test(data.toString('utf8'))
+  )
+}
+
+/**
  * What the dimensions contribute to a stored `meta` object, on the asset row and on the tree row
  * alike.
  *

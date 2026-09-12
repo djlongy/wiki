@@ -144,7 +144,6 @@ class Settings {
           corsMode: 'OFF',
           cspDirectives: '',
           disallowIframe: true,
-          disallowOpenRedirect: true,
           enforceCsp: false,
           enforceHsts: false,
           enforceSameOriginReferrerPolicy: true,
@@ -152,7 +151,6 @@ class Settings {
           hstsDuration: 0,
           trustProxy: false,
           uploadMaxFileSize: 10485760,
-          uploadMaxFiles: 20,
           uploadScanSVG: true
         }
       },

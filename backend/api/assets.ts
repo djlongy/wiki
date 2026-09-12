@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 
 import { audit } from '../helpers/audit.ts'
 import { decodeTreePath, normalizeFolderPath } from '../helpers/common.ts'
-import { INLINE_EXTS } from '../models/assets.ts'
+import { INLINE_EXTS, svgUploadIsUnsafe } from '../models/assets.ts'
 
 const assetIdParam = {
   type: 'object',
@@ -144,6 +144,17 @@ async function routes(app: FastifyInstance) {
       const data = req.body
       if (!Buffer.isBuffer(data) || data.length < 1) {
         return reply.badRequest('No file was sent.')
+      }
+
+      /*
+        Here rather than in `assets.upload()`, which this shares with the folder copy: that one
+        re-uploads bytes already in the wiki, and failing a copy over a file stored before the
+        setting was turned on guards nothing. This is where a client's bytes arrive.
+      */
+      if (WIKI.config.security?.uploadScanSVG && svgUploadIsUnsafe(req.query.fileName, data)) {
+        return reply.badRequest(
+          'This SVG contains scripts or event handlers and was refused. Remove them, or turn off the SVG scan in the security settings.'
+        )
       }
 
       /*

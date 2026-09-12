@@ -10,7 +10,6 @@ export const SECURITY_FIELDS = [
   'corsMode',
   'cspDirectives',
   'disallowIframe',
-  'disallowOpenRedirect',
   'enforceCsp',
   'enforceHsts',
   'enforceSameOriginReferrerPolicy',
@@ -18,7 +17,6 @@ export const SECURITY_FIELDS = [
   'hstsDuration',
   'trustProxy',
   'uploadMaxFileSize',
-  'uploadMaxFiles',
   'uploadScanSVG'
 ] as const
 
@@ -33,7 +31,8 @@ const DURATION_PATTERN = /^\d+[smhdwy]$/
  * at the top: the response headers, CSP, HSTS and CORS are read by the `Security` section of
  * `index.ts` when the HTTP server starts, and `uploadMaxFileSize` by the upload route's body limit
  * when it is registered, so those take effect on the next restart. `trustProxy`, the rate limit
- * fields and `forceAssetDownload` are read per request and apply as soon as they are saved.
+ * fields, `forceAssetDownload` and `uploadScanSVG` are read per request and apply as soon as they
+ * are saved.
  */
 class Security {
   /**
