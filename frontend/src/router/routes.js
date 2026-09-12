@@ -50,6 +50,15 @@ const routes = [
     component: () => import('@/pages/Search.vue')
   },
   /*
+    Browsing the wiki by tag. Under the reserved `_` prefix like every other reader screen the app
+    serves itself, and for a harder reason than consistency: the catch-all below is a page path, so a
+    bare `/tags` would be a wiki page somebody could create and shadow this with.
+  */
+  {
+    path: '/_tags',
+    component: () => import('@/pages/Tags.vue')
+  },
+  /*
     The public profile of one user. `/_user` is shared with the server, which serves avatars at
     `/_user/<id>/avatar` -- both `backend/index.ts` and the dev proxy in `frontend/vite.config.js`
     split the segment the same way, so this route only ever sees the profile half.
@@ -74,6 +83,7 @@ const routes = [
       { path: ':siteid/login', component: () => import('@/pages/AdminLogin.vue') },
       { path: ':siteid/navigation', component: () => import('@/pages/AdminNavigation.vue') },
       { path: ':siteid/storage/:id?', component: () => import('@/pages/AdminStorage.vue') },
+      { path: ':siteid/tags', component: () => import('@/pages/AdminTags.vue') },
       { path: ':siteid/theme', component: () => import('@/pages/AdminTheme.vue') },
       // -> Users
       { path: 'auth', component: () => import('@/pages/AdminAuth.vue') },

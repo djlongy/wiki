@@ -42,7 +42,9 @@ export const AUDIT_ACTIONS = {
     'moveFolder',
     'duplicateFolder',
     'setFolderColor',
-    'deleteFolder'
+    'deleteFolder',
+    'renameTag',
+    'deleteTag'
   ],
   asset: ['uploadAsset', 'updateAsset', 'deleteAsset'],
   auth: [
