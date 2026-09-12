@@ -5,7 +5,9 @@
         <img class="admin-icon animated fadeInLeft" src="/_assets/icons/fluent-cashbook.svg" />
       </div>
       <div class="min-w-0 flex-1 pl-4">
-        <div class="text-h5 admin-page-title animated fadeInLeft">{{ t('admin.editors.title') }}</div>
+        <div class="text-h5 admin-page-title animated fadeInLeft">
+          {{ t('admin.editors.title') }}
+        </div>
         <div class="text-subtitle1 text-grey animated fadeInLeft wait-p2s">
           {{ t('admin.editors.subtitle') }}
         </div>
@@ -177,9 +179,13 @@ const editors = reactive([
       editor works, but a page written with it is stored as HTML and lands in a git storage target as
       `<path>.html` instead of markdown. Turning it on is therefore a decision about the wiki's content,
       and the flag is what keeps it a deliberate one.
+
+      The switch itself is live, unlike the placeholders above it. A gate an administrator can see but
+      not operate is worse than no gate: the decision above is only a decision if it can be taken, and
+      taken back.
     */
     icon: 'google-presentation',
-    isDisabled: true,
+    isDisabled: false,
     useRendering: true
   }
 ])
