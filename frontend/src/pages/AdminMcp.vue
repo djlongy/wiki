@@ -41,6 +41,7 @@
           flat
           color="secondary"
           :loading="state.loading > 0"
+          disabled
           :aria-label="t(`common.actions.refresh`)">
           <w-tooltip>{{ t(`common.actions.refresh`) }}</w-tooltip>
         </w-btn>

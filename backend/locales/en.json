@@ -1419,6 +1419,7 @@
   "admin.utilities.purgeSampleSuccess": "There was no sample content to delete. | Deleted 1 page. | Deleted {count} pages.",
   "admin.utilities.scanPageProblems": "Scan for Page Problems",
   "admin.utilities.scanPageProblemsHint": "Scan all pages for invalid, missing or corrupted data.",
+  "admin.utilities.scanPageProblemsNotImplemented": "The page scan is not implemented yet, so this button does nothing.",
   "admin.utilities.subtitle": "Maintenance and miscellaneous tools",
   "admin.utilities.telemetrySubtitle": "Enable/Disable telemetry or reset the client ID",
   "admin.utilities.telemetryTitle": "Telemetry",
