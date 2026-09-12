@@ -125,23 +125,6 @@
           </w-card-actions>
         </w-card>
       </div>
-      <!-- .col-12.col-sm-6.col-lg-3 -->
-      <!-- q-card -->
-      <!-- q-card-section.admin-dashboard-card -->
-      <!-- img(src='/_assets/icons/fluent-tag.svg') -->
-      <!-- div -->
-      <!-- strong {{ t('admin.tags.title') }} -->
-      <!-- span {{adminStore.info.tagsTotal}} -->
-      <!-- q-separator -->
-      <!-- q-card-actions(align='right') -->
-      <!-- q-btn( -->
-      <!-- flat -->
-      <!-- color='primary' -->
-      <!-- icon='la:tags' -->
-      <!-- :label='t(`common.actions.manage`)' -->
-      <!-- :disable='!userStore.can(`manage:sites`)' -->
-      <!-- :to='`/_admin/` + adminStore.currentSiteId + `/tags`' -->
-      <!-- ) -->
       <div class="col-span-12 sm:col-span-6 lg:col-span-3">
         <w-card>
           <w-card-section class="admin-dashboard-card">

@@ -7,7 +7,6 @@ import {
   groups as groupsTable,
   hooks as hooksTable,
   pages as pagesTable,
-  tags as tagsTable,
   users as usersTable
 } from '../db/schema.ts'
 import maintenance from '../core/maintenance.ts'
@@ -220,7 +219,7 @@ async function routes(app: FastifyInstance) {
         pagesTotal: await WIKI.db.$count(pagesTable),
         platform: os.platform(),
         ramTotal: filesize(os.totalmem()),
-        tagsTotal: await WIKI.db.$count(tagsTable),
+        tagsTotal: await WIKI.models.tags.countDistinct(),
         upgradeCapable: !isNil(process.env.UPGRADE_COMPANION),
         usersTotal: await WIKI.db.$count(usersTable),
         webhooksTotal: await WIKI.db.$count(hooksTable),
