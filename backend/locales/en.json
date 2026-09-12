@@ -2071,6 +2071,7 @@
   "editor.unsaved.body": "You have unsaved changes. Are you sure you want to leave the editor and discard any modifications you made since the last save?",
   "editor.unsaved.title": "Discard Unsaved Changes?",
   "editor.unsavedWarning": "You have unsaved edits. Are you sure you want to leave the editor?",
+  "editor.wysiwyg.linkUrlScheme": "A link cannot be addressed with {scheme}:",
   "error.ERR_ACCOUNT_ALREADY_EXISTS": "An account already exists for that email address.",
   "error.ERR_ACCOUNT_NOT_ALLOWED": "That account is not in a domain or organization this wiki allows. If you have a separate work account, try that one instead.",
   "error.ERR_ACR_NOT_SATISFIED": "Your identity provider did not confirm the kind of sign-in this wiki requires. A stronger sign-in method may be available; otherwise ask an administrator.",

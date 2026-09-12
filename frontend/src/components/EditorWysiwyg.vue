@@ -79,35 +79,70 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
+/**
+ * The WYSIWYG editor.
+ *
+ * **Replacing it.** Everything that knows this editor exists is a registration, and every one of them
+ * names it `wysiwyg` rather than naming what it is built on:
+ *
+ *   - `pages/Index.vue` -- the async loader in `editorComponents`, which is the only import of this
+ *     file anywhere.
+ *   - `backend/api/schemas/site.ts` -- the `wysiwyg` block of the editors config, and the toggle
+ *     `AdminEditors.vue` draws from it.
+ *
+ * **Why it is behind the experimental flag.** Not because it does not work. `EDITOR_CONTENT_TYPES`
+ * says a page written here is stored as HTML, and a storage target laying content out by path writes
+ * that source verbatim -- so this page reaches a git mirror as `<path>.html` while every markdown page
+ * arrives as `<path>.md`. Choosing this editor therefore takes a page out of the markdown corpus, which
+ * is a decision about the wiki's content rather than about which toolbar somebody prefers. The flag is
+ * what keeps it deliberate until its owner has made that call.
+ *   - `backend/models/pages.ts` -- `EDITOR_CONTENT_TYPES.wysiwyg`, which says a page written here is
+ *     stored as HTML.
+ *
+ * Swapping in another one is therefore: point that loader at the replacement, and keep the contract
+ * this file holds up -- read `pageStore.content` on open, write `content` and `render` on every
+ * change, set `contentLoaded`, and answer the two editor-agnostic events below. Nothing outside this
+ * file mentions TipTap, so nothing else has to be unpicked.
+ *
+ * **The contract, in full.**
+ *   - `pageStore.content` is the page's source and `pageStore.render` is the HTML a reader is served.
+ *     Both are HTML here, and both are the same string: what the author sees IS the render, so there
+ *     is no second pipeline that could disagree with the first. The server sanitizes `render` on the
+ *     way in -- see `postProcess` in `backend/models/rendering.ts` -- which is what makes it safe to
+ *     let a browser decide what the HTML is.
+ *   - `insertAsset` (in) -- the File Manager picked something; see `insertAssetClb`.
+ *   - `reloadEditorContent` (in) -- pasted files have been uploaded and their `blob:` URLs now have
+ *     real paths; see `reloadEditorContent`.
+ */
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import { dialog } from '@/composables/dialog'
+import { notify } from '@/composables/notify'
+import {
+  assetPath,
+  assetUrl,
+  fileSrc,
+  rewriteHtmlImages,
+  unresolveHtmlImages
+} from '@/helpers/assets'
+import { isExternalHref } from '@/helpers/links'
 
 import { useEditorStore } from '@/stores/editor'
 import { usePageStore } from '@/stores/page'
 import { useSiteStore } from '@/stores/site'
 
+import LinkPickerDialog from '@/components/LinkPickerDialog.vue'
+
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { Color } from '@tiptap/extension-color'
-import FontFamily from '@tiptap/extension-font-family'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
-import Mention from '@tiptap/extension-mention'
-import Placeholder from '@tiptap/extension-placeholder'
-import Table from '@tiptap/extension-table'
-import TableRow from '@tiptap/extension-table-row'
-import TableCell from '@tiptap/extension-table-cell'
-import TableHeader from '@tiptap/extension-table-header'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
 import TextAlign from '@tiptap/extension-text-align'
-import TextStyle from '@tiptap/extension-text-style'
-import Typography from '@tiptap/extension-typography'
-import { common, createLowlight } from 'lowlight'
-
-const lowlight = createLowlight(common)
-
+import { Color, FontFamily, TextStyle } from '@tiptap/extension-text-style'
+import { TableKit } from '@tiptap/extension-table'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { Placeholder } from '@tiptap/extensions'
 
 // STORES
 
@@ -121,25 +156,22 @@ const { t } = useI18n()
 
 // STATE
 
-const state = reactive({
-  // editor: null,
-  ydoc: null
-})
-
+/**
+ * The TipTap instance, as a ref rather than a plain value: `useEditor` hands back a `ShallowRef` and
+ * re-renders this component on every transaction, which is what keeps the toolbar's active states in
+ * step with where the caret is.
+ */
 let editor = null
 
-const thumbStyle = {
-  right: '2px',
-  borderRadius: '5px',
-  backgroundColor: '#000',
-  width: '5px',
-  opacity: 0.15
-}
-const barStyle = {
-  backgroundColor: '#FAFAFA',
-  width: '9px',
-  opacity: 1
-}
+/**
+ * What a link may be addressed with. Anything with no scheme at all is a path in this wiki and is
+ * allowed; anything else has to be one of these.
+ *
+ * The same set the server keeps -- `ALLOWED_SCHEMES` in `backend/models/rendering.ts` -- because the
+ * server is what decides, and accepting an address that will be thrown away is worse than refusing it.
+ */
+const ALLOWED_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'ftp'])
+
 const menuBar = [
   {
     key: 'bold',
@@ -195,70 +227,70 @@ const menuBar = [
     icon: 'mdi:palette',
     title: 'Text Color',
     type: 'dropdown',
-    isActive: () => editor.value.isActive('color'),
+    isActive: () => editor.value.isActive('textStyle'),
     children: [
       {
         key: 'color-blue',
         icon: 'mdi:palette',
         title: 'Blue',
         color: 'blue',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('blue').run()
       },
       {
         key: 'color-brown',
         icon: 'mdi:palette',
         title: 'Brown',
         color: 'brown',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('brown').run()
       },
       {
         key: 'color-green',
         icon: 'mdi:palette',
         title: 'Green',
         color: 'green',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('green').run()
       },
       {
         key: 'color-orange',
         icon: 'mdi:palette',
         title: 'Orange',
         color: 'orange',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('orange').run()
       },
       {
         key: 'color-pink',
         icon: 'mdi:palette',
         title: 'Pink',
         color: 'pink',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('pink').run()
       },
       {
         key: 'color-purple',
         icon: 'mdi:palette',
         title: 'Purple',
         color: 'purple',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('purple').run()
       },
       {
         key: 'color-red',
         icon: 'mdi:palette',
         title: 'Red',
         color: 'red',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('red').run()
       },
       {
         key: 'color-teal',
         icon: 'mdi:palette',
         title: 'Teal',
         color: 'teal',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('teal').run()
       },
       {
         key: 'color-yellow',
         icon: 'mdi:palette',
         title: 'Yellow',
         color: 'yellow',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().setColor('yellow').run()
       },
       {
         type: 'divider'
@@ -268,7 +300,7 @@ const menuBar = [
         icon: 'mdi:palette',
         title: 'Default',
         color: 'grey',
-        action: () => editor.value.chain().focus().unsetHighlight().run()
+        action: () => editor.value.chain().focus().unsetColor().run()
       }
     ]
   },
@@ -284,35 +316,35 @@ const menuBar = [
         icon: 'mdi:marker',
         title: 'Yellow',
         color: 'yellow',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().toggleHighlight({ color: 'yellow' }).run()
       },
       {
         key: 'highlight-blue',
         icon: 'mdi:marker',
         title: 'Blue',
         color: 'blue',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().toggleHighlight({ color: 'blue' }).run()
       },
       {
         key: 'highlight-pink',
         icon: 'mdi:marker',
         title: 'Pink',
         color: 'pink',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().toggleHighlight({ color: 'pink' }).run()
       },
       {
         key: 'highlight-green',
         icon: 'mdi:marker',
         title: 'Green',
         color: 'green',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().toggleHighlight({ color: 'green' }).run()
       },
       {
         key: 'highlight-orange',
         icon: 'mdi:marker',
         title: 'Orange',
         color: 'orange',
-        action: () => editor.value.chain().focus().toggleHighlight().run()
+        action: () => editor.value.chain().focus().toggleHighlight({ color: 'orange' }).run()
       },
       {
         type: 'divider'
@@ -475,17 +507,23 @@ const menuBar = [
     key: 'link',
     icon: 'mdi:link-variant',
     title: 'Link',
-    action: () => {
-      // TODO: insert link
-    }
+    action: () => editLink(),
+    isActive: () => editor.value.isActive('link')
+  },
+  // -> Its own button because the picker cannot express it: every answer it gives is an address, so
+  //    "no link" is not among them, and an author who wants one gone has nothing else to reach for
+  {
+    key: 'linkremove',
+    icon: 'mdi:link-variant-off',
+    title: 'Remove Link',
+    action: () => editor.value.chain().focus().extendMarkRange('link').unsetLink().run(),
+    disabled: () => !editor.value.isActive('link')
   },
   {
     key: 'image',
     icon: 'mdi:image-plus',
     title: 'Image',
-    action: () => {
-      siteStore.openFileManager({ insertMode: true })
-    }
+    action: () => siteStore.openFileManager({ insertMode: true })
   },
   {
     key: 'table',
@@ -651,87 +689,327 @@ function init() {
     hideSideNav: false
   })
 
-  // -> Init Live Collab
-  // this.ydoc = new Y.Doc()
-
-  /* eslint-disable no-unused-vars */
-  // const dbProvider = new IndexeddbPersistence('example-document', this.ydoc)
-  // const wsProvider = new WebsocketProvider('ws://127.0.0.1:1234', 'example-document', this.ydoc)
-  /* eslint-enable no-unused-vars */
-
-  // -> Initialize TipTap
   editor = useEditor({
-    content:
-      pageStore.content && pageStore.content.startsWith('{')
-        ? JSON.parse(pageStore.content)
-        : `<p>${pageStore.content}</p>`,
+    /*
+      HTML in, HTML out.
+
+      `EDITOR_CONTENT_TYPES.wysiwyg` in `backend/models/pages.ts` says a page written here is stored
+      as HTML, and this is what has to be true for that to mean anything: the source is the document,
+      not a serialization of whichever editor happened to write it. It is also what keeps this
+      replaceable -- a page authored here opens in the next editor, and reads as a page in an export,
+      rather than as a JSON blob only TipTap can make sense of.
+
+      Resolved on the way in, because this editor's surface IS the render and a source path is not a
+      URL that loads -- see `syncToStore` for the way back out.
+    */
+    content: rewriteHtmlImages(pageStore.content ?? '', pageStore.path),
     extensions: [
       StarterKit.configure({
-        codeBlock: false,
-        history: {
+        // -> Named `history` before TipTap 3
+        undoRedo: {
           depth: 500
+        },
+        /*
+          Where the link toolbar button and the page picker put them, and nowhere else. Autolinking
+          rewrites what the author typed as they type it, and pasting a URL over selected text is
+          reasonably often meant as replacing the text.
+        */
+        link: {
+          autolink: false,
+          linkOnPaste: false,
+          openOnClick: false,
+          // -> Emptied: the extension puts `target="_blank"` and a `nofollow` on EVERY link, and a
+          //    link to another page in this wiki is neither. `linkAttrs` decides per link.
+          HTMLAttributes: {}
         }
       }),
-      CodeBlockLowlight.configure({
-        lowlight
-      }),
       Color,
-      // Collaboration.configure({
-      //   document: this.ydoc
-      // }),
       FontFamily,
       Highlight.configure({
         multicolor: true
       }),
       Image,
-      Mention.configure({
-        // TODO: suggestions
-      }),
       Placeholder.configure({
         placeholder: 'Enter some content here...'
       }),
-      Table.configure({
-        resizable: true
+      TableKit.configure({
+        table: { resizable: true }
       }),
-      TableRow,
-      TableHeader,
-      TableCell,
       TaskList,
       TaskItem,
       TextAlign,
-      TextStyle,
-      Typography
+      TextStyle
     ],
+    editorProps: {
+      handlePaste,
+      handleDrop
+    },
     onUpdate: ({ editor }) => {
-      editorStore.$patch({
-        lastChangeTimestamp: Temporal.Now.instant()
-      })
-      pageStore.$patch({
-        content: JSON.stringify(editor.getJSON()),
-        // -> What the author has typed IS the source, whatever the load did or did not deliver; see
-        //    the guard in `pageSave`
-        contentLoaded: true,
-        render: editor.getHTML()
-      })
+      syncToStore(editor)
     }
   })
 }
 
-function insertTable() {
-  // this.ql.getModule('table').insertTable(3, 3)
+/**
+ * The editor's document onto the page store: the source a save sends, and the render made from it.
+ *
+ * The two are the same HTML but for where the pictures point. A page's source addresses an uploaded
+ * file the way a file beside it would -- `/photo.png` -- and that is deliberately not a URL this
+ * server answers; `/_files/` is. The document on screen has to draw the picture, so it holds the URL,
+ * and the source is what that URL came from. Same bargain the markdown pipeline strikes, same pair of
+ * functions striking it.
+ */
+function syncToStore(instance) {
+  const html = instance.getHTML()
+  editorStore.$patch({
+    lastChangeTimestamp: Temporal.Now.instant()
+  })
+  pageStore.$patch({
+    content: unresolveHtmlImages(html),
+    // -> What the author has typed IS the source, whatever the load did or did not deliver; see
+    //    the guard in `pageSave`
+    contentLoaded: true,
+    render: html
+  })
 }
-function snapshot() {
-  // console.info(Y.encodeStateVector(this.ydoc))
+
+/**
+ * Put a link on the selection, or re-point the one already there.
+ *
+ * The picker is the markdown editor's own -- it browses the page tree on one tab and takes any address
+ * on the other -- so a link is chosen the same way in both editors, and this file holds no opinion
+ * about how you find a page.
+ */
+function editLink() {
+  const instance = editor.value
+  // -> A caret with no selection and no link under it has nothing to make into a link, so the words
+  //    have to come from somewhere; see the fallback below
+  const needsText = instance.state.selection.empty && !instance.isActive('link')
+  dialog({
+    component: LinkPickerDialog,
+    componentProps: {
+      initialHref: instance.getAttributes('link').href ?? '',
+      // -> Whether a link opens in a new tab is decided by where it points, not asked per link --
+      //    see `linkAttrs` -- so the checkbox would be a control whose answer is discarded
+      newTabOption: false
+    }
+  }).onOk(({ href, title }) => {
+    /*
+      Refused here rather than swallowed later. The picker's URL tab takes any address, the link
+      extension then drops one it will not open while keeping the mark, and the server's sanitizer
+      drops the attribute on the way in -- so a `javascript:` link became an `<a>` pointing at nothing,
+      with no word said about it to the author.
+    */
+    const scheme = /^([a-z][a-z\d+.-]*):/i.exec(href)?.[1]
+    if (scheme && !ALLOWED_SCHEMES.has(scheme.toLowerCase())) {
+      notify({
+        type: 'negative',
+        message: t('editor.wysiwyg.linkUrlScheme', { scheme })
+      })
+      return
+    }
+    const chain = instance.chain().focus()
+    if (needsText) {
+      // -> The page's own title where a page was picked and the address itself otherwise, which is
+      //    what a bare URL on a line means. The same fallback the markdown editor's link button uses.
+      insertLinkText(chain, href, title || href)
+      return
+    }
+    /*
+      Marking what is there rather than re-inserting it: a selection carries its own formatting, and
+      writing the same words back as plain text would drop the bold off a linked phrase.
+      `extendMarkRange` is what makes a caret sitting inside a link re-point the whole link instead of
+      splitting it.
+    */
+    chain.extendMarkRange('link').setLink(linkAttrs(href)).run()
+  })
+}
+
+/**
+ * What the File Manager handed back, at the cursor.
+ *
+ * Both kinds go in as paths from the site root: a file through `assetPath`, and a page the way the
+ * link picker writes one. An image goes in as one and anything else as a link -- a PDF picked from
+ * the File Manager is a link to a PDF, not a broken picture -- which is the same distinction
+ * `insertFiles` draws for a file that arrives by drop, and the same one `EditorMarkdown` draws.
+ */
+function insertAssetClb(opts) {
+  const chain = editor.value.chain().focus()
+  switch (opts.type) {
+    case 'asset': {
+      if (opts.mimeType?.startsWith('image/')) {
+        // -> The URL it loads from, not the path the page stores; `syncToStore` puts that back
+        chain.setImage({ src: assetUrl(opts.folderPath, opts.fileName), alt: opts.title }).run()
+      } else {
+        // -> A link is stored as written and resolved by nobody, here or in markdown, so it is the
+        //    path that goes in
+        insertLinkText(chain, assetPath(opts.folderPath, opts.fileName), opts.title)
+      }
+      break
+    }
+    case 'page': {
+      const pagePath = opts.folderPath ? `${opts.folderPath}/${opts.fileName}` : opts.fileName
+      insertLinkText(chain, `/${pagePath}`, opts.title)
+      break
+    }
+  }
+}
+
+/** A piece of linked text at the cursor, with the link mark closed off behind it. */
+function insertLinkText(chain, href, text) {
+  chain
+    .insertContent({ type: 'text', text, marks: [{ type: 'link', attrs: linkAttrs(href) }] })
+    .unsetMark('link')
+    .run()
+}
+
+/**
+ * How a link is written, which depends on where it goes.
+ *
+ * A link that leaves the wiki opens in a new tab and disclaims itself, as the markdown pipeline marks
+ * one; a link to another page in this wiki does neither -- it is the reader following the wiki, and
+ * the router follows it in place.
+ */
+function linkAttrs(href) {
+  // -> Both keys either way, so that re-pointing an external link at a page CLEARS them rather than
+  //    leaving the old ones merged in underneath
+  return isExternalHref(href)
+    ? { href, target: '_blank', rel: 'noopener noreferrer nofollow' }
+    : { href, target: null, rel: null }
+}
+
+/**
+ * Files pasted or dropped into the editor.
+ *
+ * Nothing is uploaded here. Each one becomes a pending asset held against a `blob:` URL that the
+ * document points at, and `UploadPendingAssetsDialog` sends them on save and rewrites those URLs to
+ * wherever they actually landed -- see `reloadEditorContent`. So the editor shows the image
+ * immediately and the page never stores a URL that dies with the tab.
+ *
+ * Except while suggesting an edit, where files are refused outright: somebody suggesting an edit is
+ * by definition somebody without write access to this page, and filing their files into the wiki
+ * beside it is not a decision this flow gets to make. Said out loud rather than silently, because the
+ * paste has already been taken off the browser by the time this runs.
+ */
+function insertFiles(files) {
+  if (editorStore.mode === 'suggest') {
+    notify({
+      type: 'warning',
+      message: t('editor.pendingAssetsNotInSuggestions')
+    })
+    return
+  }
+  const chain = editor.value.chain().focus()
+  for (const file of files) {
+    const blobUrl = editorStore.addPendingAsset(file)
+    if (file.type.startsWith('image/')) {
+      chain.setImage({ src: blobUrl, alt: file.name })
+    } else {
+      chain.insertContent({
+        type: 'text',
+        text: file.name,
+        marks: [{ type: 'link', attrs: linkAttrs(blobUrl) }]
+      })
+      chain.unsetMark('link')
+    }
+  }
+  chain.run()
+}
+
+/*
+  Pasting a file inserts it; pasting anything else is left to ProseMirror.
+
+  Text wins when both are on the clipboard. Copying from a spreadsheet or a design tool puts a bitmap
+  of the selection alongside the text, and pasting a picture of a table nobody asked for is worse than
+  pasting the table.
+*/
+function handlePaste(view, event) {
+  const files = [...(event.clipboardData?.files ?? [])]
+  if (files.length === 0) {
+    return false
+  }
+  if ((event.clipboardData.getData('text/plain') ?? '').trim().length > 0) {
+    return false
+  }
+  insertFiles(files)
+  // -> Claimed: ProseMirror's own handling would put the file's name in as text
+  return true
+}
+
+function handleDrop(view, event) {
+  const files = [...(event.dataTransfer?.files ?? [])]
+  if (files.length === 0) {
+    return false
+  }
+  // -> Dropped text lands where it was dropped, and so should a file: the caret moves to meet it
+  const target = view.posAtCoords({ left: event.clientX, top: event.clientY })
+  if (target) {
+    editor.value.commands.setTextSelection(target.pos)
+  }
+  insertFiles(files)
+  return true
+}
+
+/**
+ * Point the document at the files a save has just uploaded, now that their `blob:` URLs have real
+ * paths.
+ *
+ * Done as one transaction over the nodes that carry a URL rather than by putting the whole document
+ * back with `setContent`. Replacing the document reads as "everything was deleted and everything was
+ * typed again", which throws away the undo history and the caret for what is, to the author, an
+ * upload finishing.
+ *
+ * The store follows immediately rather than on the next keystroke: this runs from
+ * `UploadPendingAssetsDialog`, right before the save, and a `render` still full of `blob:` URLs is
+ * what goes up if it does not.
+ */
+function reloadEditorContent({ replacements = [] } = {}) {
+  const instance = editor.value
+  if (!instance || replacements.length === 0) {
+    return
+  }
+  const paths = new Map(replacements.map(({ from, to }) => [from, to]))
+  const { state } = instance
+  const tr = state.tr
+  let changed = false
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'image' && paths.has(node.attrs.src)) {
+      // -> Through `fileSrc` for the same reason the load is: what the document holds is what loads
+      tr.setNodeMarkup(pos, undefined, {
+        ...node.attrs,
+        src: fileSrc(paths.get(node.attrs.src), pageStore.path)
+      })
+      changed = true
+    }
+    for (const mark of node.marks) {
+      if (mark.type.name === 'link' && paths.has(mark.attrs.href)) {
+        // -> Through `linkAttrs` again: a `blob:` was never external and the path it becomes is not
+        //    either, but the pair has one place where that is decided
+        tr.addMark(
+          pos,
+          pos + node.nodeSize,
+          mark.type.create({ ...mark.attrs, ...linkAttrs(paths.get(mark.attrs.href)) })
+        )
+        changed = true
+      }
+    }
+  })
+  if (changed) {
+    instance.view.dispatch(tr)
+  }
 }
 
 // MOUNTED
 
 onMounted(() => {
-  // init()
+  EVENT_BUS.on('insertAsset', insertAssetClb)
+  EVENT_BUS.on('reloadEditorContent', reloadEditorContent)
 })
 
+// -> `useEditor` destroys the instance itself on unmount
 onBeforeUnmount(() => {
-  editor.value.destroy()
+  EVENT_BUS.off('insertAsset', insertAssetClb)
+  EVENT_BUS.off('reloadEditorContent', reloadEditorContent)
 })
 
 init()
