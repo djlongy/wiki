@@ -140,6 +140,15 @@
             </w-item>
             <template v-if="flagsStore.experimental">
               <w-item
+                :to="`/_admin/` + adminStore.currentSiteId + `/analytics`"
+                active-class="bg-primary text-white"
+                disabled>
+                <w-item-section avatar>
+                  <w-icon name="img:/_assets/icons/fluent-bar-chart.svg" />
+                </w-item-section>
+                <w-item-section>{{ t('admin.analytics.title') }}</w-item-section>
+              </w-item>
+              <w-item
                 :to="`/_admin/` + adminStore.currentSiteId + `/comments`"
                 active-class="bg-primary text-white"
                 disabled>
@@ -213,6 +222,16 @@
                   :color="storageHealthy ? `positive` : `warning`"
                   :pulse="!storageHealthy" />
               </w-item-section>
+            </w-item>
+            <w-item
+              :to="`/_admin/` + adminStore.currentSiteId + `/tags`"
+              active-class="bg-primary text-white"
+              disabled
+              v-if="flagsStore.experimental && userStore.can(`manage:sites`)">
+              <w-item-section avatar>
+                <w-icon name="img:/_assets/icons/fluent-tag.svg" />
+              </w-item-section>
+              <w-item-section>{{ t('admin.tags.title') }}</w-item-section>
             </w-item>
             <w-item
               :to="`/_admin/` + adminStore.currentSiteId + `/theme`"

@@ -125,6 +125,23 @@
           </w-card-actions>
         </w-card>
       </div>
+      <!-- .col-12.col-sm-6.col-lg-3 -->
+      <!-- q-card -->
+      <!-- q-card-section.admin-dashboard-card -->
+      <!-- img(src='/_assets/icons/fluent-tag.svg') -->
+      <!-- div -->
+      <!-- strong {{ t('admin.tags.title') }} -->
+      <!-- span {{adminStore.info.tagsTotal}} -->
+      <!-- q-separator -->
+      <!-- q-card-actions(align='right') -->
+      <!-- q-btn( -->
+      <!-- flat -->
+      <!-- color='primary' -->
+      <!-- icon='la:tags' -->
+      <!-- :label='t(`common.actions.manage`)' -->
+      <!-- :disable='!userStore.can(`manage:sites`)' -->
+      <!-- :to='`/_admin/` + adminStore.currentSiteId + `/tags`' -->
+      <!-- ) -->
       <div class="col-span-12 sm:col-span-6 lg:col-span-3">
         <w-card>
           <w-card-section class="admin-dashboard-card">
@@ -134,6 +151,16 @@
               <small>{{ adminStore.info.loginsPastDay }} <i>/ past 24h</i></small>
             </div>
           </w-card-section>
+          <w-separator />
+          <w-card-actions align="right">
+            <w-btn
+              flat
+              :color="actionColor"
+              icon="la:chart-area"
+              :label="t(`admin.analytics.title`)"
+              :disable="!flagsStore.experimental"
+              :to="`/_admin/` + adminStore.currentSiteId + `/analytics`" />
+          </w-card-actions>
         </w-card>
       </div>
       <div class="col-span-12 sm:col-span-6 lg:col-span-3">
@@ -348,6 +375,7 @@ import { useDark } from '@/composables/dark'
 import { notify } from '@/composables/notify'
 import { relativeDate } from '@/helpers/datetime'
 
+import { useFlagsStore } from '@/stores/flags'
 import { useSiteStore } from '@/stores/site'
 import { useUserStore } from '@/stores/user'
 
@@ -360,6 +388,7 @@ import GroupCreateDialog from '@/components/GroupCreateDialog.vue'
 // STORES
 
 const adminStore = useAdminStore()
+const flagsStore = useFlagsStore()
 const siteStore = useSiteStore()
 const userStore = useUserStore()
 
