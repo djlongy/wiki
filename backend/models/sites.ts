@@ -2,6 +2,7 @@ import { mergeWith, toMerged } from 'es-toolkit/object'
 import { keyBy } from 'es-toolkit/array'
 import {
   blocks as blocksTable,
+  navigation as navigationTable,
   siteAssets as siteAssetsTable,
   sites as sitesTable,
   storage as storageTable
@@ -347,15 +348,27 @@ class Sites {
   }
 
   async deleteSite(id: string): Promise<boolean> {
-    // -> Block, storage and uploaded image rows belong to the site rather than to its content, and
-    //    their FK has no cascade, so they would otherwise block the delete. Content tables (pages,
-    //    assets, ...) deliberately still do — see the conflict handling in the route.
-    await WIKI.db.delete(blocksTable).where(eq(blocksTable.siteId, id))
-    await WIKI.db.delete(storageTable).where(eq(storageTable.siteId, id))
-    await WIKI.db.delete(siteAssetsTable).where(eq(siteAssetsTable.siteId, id))
+    /*
+      In one transaction, because the clearing below has to be undone if the site itself will not go.
+      A site holding content is refused by the FK on `pages` and `tree`, which is the intended answer
+      (see the conflict handling in the route) — but it is refused AFTER this has already emptied the
+      site's blocks, storage targets, images and menus. Outside a transaction that leaves a site the
+      caller was told still exists, stripped of everything a delete was not supposed to touch.
+    */
+    const deleted = await WIKI.db.transaction(async (trx: any) => {
+      // -> These belong to the site rather than to its content, and their FK has no cascade, so they
+      //    would otherwise block a delete that should succeed. The site-wide navigation menu is one
+      //    of them: `createSite` gives every site the menu its pages inherit, so without this no
+      //    site can ever be deleted, not even an empty one.
+      await trx.delete(blocksTable).where(eq(blocksTable.siteId, id))
+      await trx.delete(storageTable).where(eq(storageTable.siteId, id))
+      await trx.delete(siteAssetsTable).where(eq(siteAssetsTable.siteId, id))
+      await trx.delete(navigationTable).where(eq(navigationTable.siteId, id))
 
-    const deletedResult = await WIKI.db.delete(sitesTable).where(eq(sitesTable.id, id))
-    if ((deletedResult.rowCount ?? 0) < 1) {
+      const deletedResult = await trx.delete(sitesTable).where(eq(sitesTable.id, id))
+      return (deletedResult.rowCount ?? 0) >= 1
+    })
+    if (!deleted) {
       return false
     }
 
