@@ -36,309 +36,93 @@
           <w-tooltip>{{ t(`common.actions.refresh`) }}</w-tooltip>
         </w-btn>
         <w-btn
+          v-if="canManage"
           unelevated
-          icon="mdi:check"
-          :label="t(`common.actions.apply`)"
+          icon="mdi:playlist-edit"
+          :label="t(`navEdit.editMenuItems`)"
           color="secondary"
-          @click="save"
-          :disabled="state.loading > 0" />
+          :disabled="state.loading > 0 || !state.navigationId"
+          @click="edit" />
       </div>
     </div>
     <w-separator inset />
-    <div class="flex flex-wrap p-4 gap-4">
-      <div class="flex-none">
-        <w-card class="mt-2">{{ t('admin.navigation.mode') }}</w-card>
-        <w-card class="bg-dark mt-2">
-          <w-list style="min-width: 350px" padding dark>
-            <w-item>
-              <w-item-section>
-                <w-select
-                  dark
-                  outlined
-                  option-value="value"
-                  option-label="text"
-                  emit-value
-                  map-options
-                  dense
-                  options-dense
-                  :label="t(`admin.navigation.mode`)"
-                  :aria-label="t(`admin.navigation.mode`)" />
-              </w-item-section>
-            </w-item>
-          </w-list>
-        </w-card>
-      </div>
+    <div class="p-4">
+      <w-card>
+        <w-card-section class="card-header flex items-center">
+          <w-icon name="img:/_assets/icons/fluent-sidebar-menu.svg" left size="sm" />
+          <span>{{ t('admin.navigation.siteMenu') }}</span>
+          <w-space />
+          <!--
+            Only where there is a choice to make: the site-wide menu is per locale, so a wiki written
+            in one language has exactly one and a picker showing it would be a control with a single
+            option.
+          -->
+          <w-select
+            v-if="localeOptions.length > 1"
+            style="min-width: 200px"
+            outlined
+            dense
+            options-dense
+            hide-bottom-space
+            v-model="state.locale"
+            :options="localeOptions"
+            option-value="code"
+            option-label="name"
+            emit-value
+            map-options
+            :aria-label="t(`admin.navigation.locale`)"
+            @update:model-value="loadMenu" />
+        </w-card-section>
+        <w-card-section class="text-caption text-grey">
+          {{ t('admin.navigation.siteMenuHint') }}
+        </w-card-section>
+        <w-separator />
+        <w-list dense>
+          <w-item v-if="rows.length < 1">
+            <w-item-section class="text-grey">{{ t('admin.navigation.emptyList') }}</w-item-section>
+          </w-item>
+          <w-item v-for="row of rows" :key="row.id" dense :class="row.nested ? 'pl-8' : ''">
+            <w-item-section side>
+              <w-icon :name="rowIcon(row)" :color="row.type === `link` ? `primary` : `grey`" />
+            </w-item-section>
+            <w-item-section>
+              <w-item-label>{{ row.label || t(`navEdit.${row.type}`) }}</w-item-label>
+              <w-item-label caption v-if="row.type === `link`">{{ row.target }}</w-item-label>
+            </w-item-section>
+            <!--
+              What the reader has to belong to for the row to appear at all: an item limited to a
+              group is missing from most people's sidebar, which is otherwise invisible from here.
+            -->
+            <w-item-section side v-if="row.visibilityGroups?.length > 0">
+              <div class="text-caption text-grey">
+                {{ t('admin.navigation.restrictedTo', { count: row.visibilityGroups.length }) }}
+              </div>
+            </w-item-section>
+          </w-item>
+        </w-list>
+      </w-card>
     </div>
   </w-page>
-  <!-- v-container.pa-0.mt-3(fluid, grid-list-lg) -->
-  <!-- v-row(dense) -->
-  <!-- v-col(cols='3') -->
-  <!-- v-card.animated.fadeInUp -->
-  <!-- v-toolbar(color='teal', dark, dense, flat, height='56') -->
-  <!-- v-toolbar-title.subtitle-1 {{$t('admin.navigation.mode')}} -->
-  <!-- v-list(nav, two-line) -->
-  <!-- v-list-item-group(v-model='config.mode', mandatory, :color='$vuetify.theme.dark ? `teal lighten-3` : `teal`') -->
-  <!-- v-list-item(value='TREE') -->
-  <!-- v-list-item-avatar -->
-  <!-- img(src='/_assets/svg/icon-tree-structure-dotted.svg', alt='Site Tree') -->
-  <!-- v-list-item-content -->
-  <!-- v-list-item-title {{$t('admin.navigation.modeSiteTree.title')}} -->
-  <!-- v-list-item-subtitle {{$t('admin.navigation.modeSiteTree.description')}} -->
-  <!-- v-list-item-avatar -->
-  <!-- v-icon(v-if='$vuetify.theme.dark', :color='config.mode === `TREE` ? `teal lighten-3` : `grey darken-2`') mdi-check-circle -->
-  <!-- v-icon(v-else, :color='config.mode === `TREE` ? `teal` : `grey lighten-3`') mdi-check-circle -->
-  <!-- v-list-item(value='STATIC') -->
-  <!-- v-list-item-avatar -->
-  <!-- img(src='/_assets/svg/icon-features-list.svg', alt='Static Navigation') -->
-  <!-- v-list-item-content -->
-  <!-- v-list-item-title {{$t('admin.navigation.modeStatic.title')}} -->
-  <!-- v-list-item-subtitle {{$t('admin.navigation.modeStatic.description')}} -->
-  <!-- v-list-item-avatar -->
-  <!-- v-icon(v-if='$vuetify.theme.dark', :color='config.mode === `STATIC` ? `teal lighten-3` : `grey darken-2`') mdi-check-circle -->
-  <!-- v-icon(v-else, :color='config.mode === `STATIC` ? `teal` : `grey lighten-3`') mdi-check-circle -->
-  <!-- v-list-item(value='MIXED') -->
-  <!-- v-list-item-avatar -->
-  <!-- img(src='/_assets/svg/icon-user-menu-male-dotted.svg', alt='Custom Navigation') -->
-  <!-- v-list-item-content -->
-  <!-- v-list-item-title {{$t('admin.navigation.modeCustom.title')}} -->
-  <!-- v-list-item-subtitle {{$t('admin.navigation.modeCustom.description')}} -->
-  <!-- v-list-item-avatar -->
-  <!-- v-icon(v-if='$vuetify.theme.dark', :color='config.mode === `MIXED` ? `teal lighten-3` : `grey darken-2`') mdi-check-circle -->
-  <!-- v-icon(v-else, :color='config.mode === `MIXED` ? `teal` : `grey lighten-3`') mdi-check-circle -->
-  <!-- v-list-item(value='NONE') -->
-  <!-- v-list-item-avatar -->
-  <!-- img(src='/_assets/svg/icon-cancel-dotted.svg', alt='None') -->
-  <!-- v-list-item-content -->
-  <!-- v-list-item-title {{$t('admin.navigation.modeNone.title')}} -->
-  <!-- v-list-item-subtitle {{$t('admin.navigation.modeNone.description')}} -->
-  <!-- v-list-item-avatar -->
-  <!-- v-icon(v-if='$vuetify.theme.dark', :color='config.mode === `none` ? `teal lighten-3` : `grey darken-2`') mdi-check-circle -->
-  <!-- v-icon(v-else, :color='config.mode === `none` ? `teal` : `grey lighten-3`') mdi-check-circle -->
-  <!-- v-col(cols='9', v-if='config.mode === `MIXED` || config.mode === `STATIC`') -->
-  <!-- v-card.animated.fadeInUp.wait-p2s -->
-  <!-- v-row(no-gutters, align='stretch') -->
-  <!-- v-col(style='flex: 0 0 350px;') -->
-  <!-- v-card.grey(flat, style='height: 100%; border-radius: 4px 0 0 4px;', :class='$vuetify.theme.dark ? `darken-4-l5` : `lighten-3`') -->
-  <!-- .teal.lighten-1.pa-2.d-flex(style='margin-bottom: 1px; height:56px;') -->
-  <!-- v-select( -->
-  <!-- :disabled='locales.length < 2' -->
-  <!-- label='Locale' -->
-  <!-- hide-details -->
-  <!-- solo -->
-  <!-- flat -->
-  <!-- background-color='teal darken-2' -->
-  <!-- dark -->
-  <!-- dense -->
-  <!-- v-model='currentLang' -->
-  <!-- :items='locales' -->
-  <!-- item-text='nativeName' -->
-  <!-- item-value='code' -->
-  <!-- ) -->
-  <!-- v-tooltip(top) -->
-  <!-- template(v-slot:activator='{ on }') -->
-  <!-- v-btn.ml-2(icon, tile, color='white', v-on='on', @click='copyFromLocaleDialogIsShown = true') -->
-  <!-- v-icon mdi-arrange-send-backward -->
-  <!-- span {{$t('admin.navigation.copyFromLocale')}} -->
-  <!-- v-list.py-2(dense, nav, dark, class='blue darken-2', style='border-radius: 0;') -->
-  <!-- v-list-item(v-if='currentTree.length < 1') -->
-  <!-- v-list-item-avatar(size='24'): v-icon(color='blue lighten-3') mdi-alert -->
-  <!-- v-list-item-content -->
-  <!-- em.caption.blue--text.text--lighten-4 {{$t('navigation.emptyList')}} -->
-  <!-- draggable(v-model='currentTree') -->
-  <!-- template(v-for='navItem in currentTree') -->
-  <!-- v-list-item( -->
-  <!-- v-if='navItem.kind === "link"' -->
-  <!-- :key='navItem.id' -->
-  <!-- :class='(navItem === current) ? "blue" : ""' -->
-  <!-- @click='selectItem(navItem)' -->
-  <!-- ) -->
-  <!-- v-list-item-avatar(size='24', tile) -->
-  <!-- v-icon(v-if='navItem.icon.match(/fa[a-z] fa-/)', size='19') {{ navItem.icon }} -->
-  <!-- v-icon(v-else) {{ navItem.icon }} -->
-  <!-- v-list-item-title {{navItem.label}} -->
-  <!-- .py-2.clickable( -->
-  <!-- v-else-if='navItem.kind === "divider"' -->
-  <!-- :key='navItem.id' -->
-  <!-- :class='(navItem === current) ? "blue" : ""' -->
-  <!-- @click='selectItem(navItem)' -->
-  <!-- ) -->
-  <!-- v-divider -->
-  <!-- v-subheader.pl-4.clickable( -->
-  <!-- v-else-if='navItem.kind === "header"' -->
-  <!-- :key='navItem.id' -->
-  <!-- :class='(navItem === current) ? "blue" : ""' -->
-  <!-- @click='selectItem(navItem)' -->
-  <!-- ) {{navItem.label}} -->
-  <!-- v-card-chin -->
-  <!-- v-menu(offset-y, bottom, min-width='200px', style='flex: 1 1;') -->
-  <!-- template(v-slot:activator='{ on }') -->
-  <!-- v-btn(v-on='on', color='primary', depressed, block) -->
-  <!-- v-icon(left) mdi-plus -->
-  <!-- span {{$t('common.actions.add')}} -->
-  <!-- v-list -->
-  <!-- v-list-item(@click='addItem("link")') -->
-  <!-- v-list-item-avatar(size='24'): v-icon mdi-link -->
-  <!-- v-list-item-title {{$t('navigation.link')}} -->
-  <!-- v-list-item(@click='addItem("header")') -->
-  <!-- v-list-item-avatar(size='24'): v-icon mdi-format-title -->
-  <!-- v-list-item-title {{$t('navigation.header')}} -->
-  <!-- v-list-item(@click='addItem("divider")') -->
-  <!-- v-list-item-avatar(size='24'): v-icon mdi-minus -->
-  <!-- v-list-item-title {{$t('navigation.divider')}} -->
-  <!-- v-col -->
-  <!-- v-card(flat, style='border-radius: 0 4px 4px 0;') -->
-  <!-- template(v-if='current.kind === "link"') -->
-  <!-- v-toolbar(height='56', color='teal lighten-1', flat, dark) -->
-  <!-- .subtitle-1 {{$t('navigation.edit', { kind: $t('navigation.link') })}} -->
-  <!-- v-spacer -->
-  <!-- v-btn.px-5(color='white', outlined, @click='deleteItem(current)') -->
-  <!-- v-icon(left) mdi-delete -->
-  <!-- span {{$t('navigation.delete', { kind: $t('navigation.link') })}} -->
-  <!-- v-card-text -->
-  <!-- v-text-field( -->
-  <!-- outlined -->
-  <!-- :label='$t("navigation.label")' -->
-  <!-- prepend-icon='mdi:format-title' -->
-  <!-- v-model='current.label' -->
-  <!-- counter='255' -->
-  <!-- ) -->
-  <!-- v-text-field( -->
-  <!-- outlined -->
-  <!-- :label='$t("navigation.icon")' -->
-  <!-- prepend-icon='mdi:dice-5' -->
-  <!-- v-model='current.icon' -->
-  <!-- hide-details -->
-  <!-- ) -->
-  <!-- .caption.pt-3.pl-5 The default icon set is #[strong Material Design Icons]. In order to use another icon set, you must first select it in the Theme administration section. -->
-  <!-- .caption.pt-3.pl-5: strong Material Design Icons -->
-  <!-- .caption.pl-5 Refer to the #[a(href='https://materialdesignicons.com/', target='_blank') Material Design Icons Reference] for the list of all possible values. You must prefix all values with #[code mdi-], e.g. #[code mdi-home] -->
-  <!-- .caption.pt-3.pl-5: strong Font Awesome 5 -->
-  <!-- .caption.pl-5 Refer to the #[a(href='https://fontawesome.com/icons?d=gallery&m=free', target='_blank') Font Awesome 5 Reference] for the list of all possible values. You must prefix all values with #[code fas fa-], e.g. #[code fas fa-home]. Note that some icons use different prefixes (e.g. #[code fab], #[code fad], #[code fal], #[code far]). -->
-  <!-- .caption.pt-3.pl-5: strong Font Awesome 4 -->
-  <!-- .caption.pl-5 Refer to the #[a(href='https://fontawesome.com/v4.7.0/icons/', target='_blank') Font Awesome 4 Reference] for the list of all possible values. You must prefix all values with #[code fa fa-], e.g. #[code fa fa-home] -->
-  <!-- v-divider -->
-  <!-- v-card-text -->
-  <!-- v-select( -->
-  <!-- outlined -->
-  <!-- :label='$t("navigation.targetType")' -->
-  <!-- prepend-icon='mdi:near-me' -->
-  <!-- :items='navTypes' -->
-  <!-- v-model='current.targetType' -->
-  <!-- hide-details -->
-  <!-- ) -->
-  <!-- v-text-field.mt-4( -->
-  <!-- v-if='current.targetType === `external` || current.targetType === `externalblank`' -->
-  <!-- outlined -->
-  <!-- :label='$t("navigation.target")' -->
-  <!-- prepend-icon='mdi:near-me' -->
-  <!-- v-model='current.target' -->
-  <!-- hide-details -->
-  <!-- ) -->
-  <!-- .d-flex.align-center.mt-4(v-else-if='current.targetType === "page"') -->
-  <!-- v-btn.ml-8( -->
-  <!-- color='primary' -->
-  <!-- dark -->
-  <!-- @click='selectPage' -->
-  <!-- ) -->
-  <!-- v-icon(left) mdi-magnify -->
-  <!-- span {{$t('admin.navigation.selectPageButton')}} -->
-  <!-- .caption.ml-4.primary--text {{current.target}} -->
-  <!-- v-text-field( -->
-  <!-- v-else-if='current.targetType === `search`' -->
-  <!-- outlined -->
-  <!-- :label='$t("navigation.navType.searchQuery")' -->
-  <!-- prepend-icon='search' -->
-  <!-- v-model='current.target' -->
-  <!-- ) -->
-  <!-- v-divider -->
-  <!-- template(v-else-if='current.kind === "header"') -->
-  <!-- v-toolbar(height='56', color='teal lighten-1', flat, dark) -->
-  <!-- .subtitle-1 {{$t('navigation.edit', { kind: $t('navigation.header') })}} -->
-  <!-- v-spacer -->
-  <!-- v-btn.px-5(color='white', outlined, @click='deleteItem(current)') -->
-  <!-- v-icon(left) mdi-delete -->
-  <!-- span {{$t('navigation.delete', { kind: $t('navigation.header') })}} -->
-  <!-- v-card-text -->
-  <!-- v-text-field( -->
-  <!-- outlined -->
-  <!-- :label='$t("navigation.label")' -->
-  <!-- prepend-icon='mdi:format-title' -->
-  <!-- v-model='current.label' -->
-  <!-- ) -->
-  <!-- v-divider -->
-  <!-- div(v-else-if='current.kind === "divider"') -->
-  <!-- v-toolbar(height='56', color='teal lighten-1', flat, dark) -->
-  <!-- .subtitle-1 {{$t('navigation.edit', { kind: $t('navigation.divider') })}} -->
-  <!-- v-spacer -->
-  <!-- v-btn.px-5(color='white', outlined, @click='deleteItem(current)') -->
-  <!-- v-icon(left) mdi-delete -->
-  <!-- span {{$t('navigation.delete', { kind: $t('navigation.divider') })}} -->
-  <!-- v-card-text(v-if='current.kind') -->
-  <!-- v-radio-group.pl-8(v-model='current.visibilityMode', mandatory, hide-details) -->
-  <!-- v-radio(:label='$t("admin.navigation.visibilityMode.all")', value='all', color='primary') -->
-  <!-- v-radio.mt-3(:label='$t("admin.navigation.visibilityMode.restricted")', value='restricted', color='primary') -->
-  <!-- .pl-8 -->
-  <!-- v-select.pl-8.mt-3( -->
-  <!-- item-text='name' -->
-  <!-- item-value='id' -->
-  <!-- outlined -->
-  <!-- prepend-icon='mdi:account-group' -->
-  <!-- label='Groups' -->
-  <!-- :disabled='current.visibilityMode !== `restricted`' -->
-  <!-- v-model='current.visibilityGroups' -->
-  <!-- :items='groups' -->
-  <!-- persistent-hint -->
-  <!-- clearable -->
-  <!-- multiple -->
-  <!-- ) -->
-  <!-- template(v-else) -->
-  <!-- v-toolbar(height='56', color='teal lighten-1', flat, dark) -->
-  <!-- v-card-text.grey--text(v-if='currentTree.length > 0') {{$t('navigation.noSelectionText')}} -->
-  <!-- v-card-text.grey--text(v-else) {{$t('navigation.noItemsText')}} -->
-  <!-- v-dialog(v-model='copyFromLocaleDialogIsShown', max-width='650', persistent) -->
-  <!-- v-card -->
-  <!-- .dialog-header.is-short.is-teal -->
-  <!-- v-icon.mr-3(color='white') mdi-arrange-send-backward -->
-  <!-- span {{$t('admin.navigation.copyFromLocale')}} -->
-  <!-- v-card-text.pt-5 -->
-  <!-- .body-2 {{$t('admin.navigation.copyFromLocaleInfoText')}} -->
-  <!-- v-select.mt-3( -->
-  <!-- :items='locales' -->
-  <!-- item-text='nativeName' -->
-  <!-- item-value='code' -->
-  <!-- outlined -->
-  <!-- prepend-icon='mdi:web' -->
-  <!-- v-model='copyFromLocaleCode' -->
-  <!-- :label='$t(`admin.navigation.sourceLocale`)' -->
-  <!-- :hint='$t(`admin.navigation.sourceLocaleHint`)' -->
-  <!-- persistent-hint -->
-  <!-- ) -->
-  <!-- v-card-chin -->
-  <!-- v-spacer -->
-  <!-- v-btn(text, @click='copyFromLocaleDialogIsShown = false') {{$t('common.actions.cancel')}} -->
-  <!-- v-btn.px-3(depressed, color='primary', @click='copyFromLocale') -->
-  <!-- v-icon(left) mdi-chevron-right -->
-  <!-- span {{$t('common.actions.copy')}} -->
-  <!-- page-selector(mode='select', v-model='selectPageModal', :open-handler='selectPageHandle', path='home', :locale='currentLang') -->
 </template>
 
 <script setup>
 import { useI18n } from 'vue-i18n'
-import { computed, onMounted, reactive, watch, nextTick } from 'vue'
+import { computed, onMounted, reactive, watch } from 'vue'
 
 import { useMeta } from '@/composables/meta'
+import { notify } from '@/composables/notify'
 
 import { useAdminStore } from '@/stores/admin'
 import { useSiteStore } from '@/stores/site'
+import { useUserStore } from '@/stores/user'
 
-import { intersectionBy, pull, unionBy } from 'es-toolkit/array'
-import { v4 as uuid } from 'uuid'
-import draggable from 'vuedraggable'
+import { apiErrorMessage } from '@/helpers/apiError'
 
 // STORES
 
 const adminStore = useAdminStore()
 const siteStore = useSiteStore()
+const userStore = useUserStore()
 
 // I18N
 
@@ -352,296 +136,148 @@ useMeta(() => ({
 
 // DATA
 
-const siteConfig = { lang: 'en' }
-const siteLangs = [{ code: 'en' }]
-
 const state = reactive({
   loading: 0,
-  selectPageModal: false,
-  trees: [],
-  current: {},
-  currentLang: siteConfig.lang,
-  groups: [],
-  copyFromLocaleDialogIsShown: false,
-  config: {
-    mode: 'NONE'
-  },
-  allLocales: [],
-  copyFromLocaleCode: 'en'
+  /** Locale codes this site has active — which locales have a site-wide menu at all. */
+  active: [],
+  locale: '',
+  /** The menu the locale resolves to, which the editor is opened on. */
+  navigationId: null,
+  items: []
 })
 
 // COMPUTED
 
-const navTypes = computed(() => [
-  { text: t('navigation.navType.external'), value: 'external' },
-  { text: t('navigation.navType.externalblank'), value: 'externalblank' },
-  { text: t('navigation.navType.home'), value: 'home' },
-  { text: t('navigation.navType.page'), value: 'page' }
-  // { text: t('navigation.navType.searchQuery'), value: 'search' }
-])
+/*
+  Saving needs `manage:navigation` (see `api/navigation.ts`), so the action that would perform one is
+  hidden rather than left to fail at the API. The listing above it needs the same permission and comes
+  back empty for anyone else, which is the server's answer and not this page's.
+*/
+const canManage = computed(() => userStore.can('manage:navigation'))
 
-const locales = computed(() => {
-  // -> `(l) => l.code` rather than the `'code'` shorthand lodash took: es-toolkit's `*By` helpers
-  //    want a mapper function, and a string reaches `uniqBy` as one and throws
-  return intersectionBy(
-    state.allLocales,
-    unionBy(siteLangs, [{ code: 'en' }, { code: siteConfig.lang }], (l) => l.code),
-    (l) => l.code
-  )
-})
+/** The site's active locales, named as the wiki names them rather than by bare code. */
+const localeOptions = computed(() =>
+  state.active.map((code) => ({
+    code,
+    name: adminStore.locales.find((lc) => lc.code === code)?.name ?? code
+  }))
+)
 
-const currentTree = computed({
-  get() {
-    return state.trees.find((tree) => tree.locale === state.currentLang)?.items || []
-  },
-  set(val) {
-    const tree = state.trees.find((t) => t.locale === state.currentLang)
-    if (tree) {
-      tree.items = val
-    } else {
-      state.trees = [
-        ...state.trees,
-        {
-          locale: state.currentLang,
-          items: val
-        }
-      ]
-    }
-  }
-})
+/**
+ * The menu as one list of rows, a submenu's entries following the link that holds them.
+ *
+ * Flat because this is a summary and not the editor: two levels of `v-for` would say nothing an
+ * indent does not, and the editor itself works on a flat list for the same reason.
+ */
+const rows = computed(() =>
+  state.items.flatMap((item) => [
+    { ...item, nested: false },
+    ...(item.children ?? []).map((child) => ({ ...child, nested: true }))
+  ])
+)
 
 // WATCHERS
 
+// -> Set by `AdminLayout` after this page has mounted when the admin area is opened straight at this
+//    URL, so the first load is this watcher's rather than `onMounted`'s
+watch(() => adminStore.currentSiteId, load)
+
 watch(
-  () => state.currentLang,
+  () => adminStore.overlay,
   (newValue, oldValue) => {
-    nextTick(() => {
-      if (state.currentTree.length > 0) {
-        state.current = state.currentTree[0]
-      } else {
-        state.current = {}
-      }
-    })
+    // -> The editor saves the menu itself, so what is on screen here is stale the moment it closes
+    if (!newValue && oldValue === 'NavEdit') {
+      loadMenu()
+    }
   }
 )
 
 // METHODS
 
-async function load() {}
-
-function addItem(kind) {
-  let newItem = {
-    id: uuid(),
-    kind,
-    visibilityMode: 'all',
-    visibilityGroups: []
-  }
-  switch (kind) {
-    case 'link':
-      newItem = {
-        ...newItem,
-        label: t('navigation.untitled', { kind: t('navigation.link') }),
-        icon: 'mdi:chevron-right',
-        targetType: 'home',
-        target: ''
-      }
-      break
-    case 'header':
-      newItem.label = t('navigation.untitled', { kind: t('navigation.header') })
-      break
-  }
-  state.currentTree = [...state.currentTree, newItem]
-  state.current = newItem
-}
-
-function deleteItem(item) {
-  state.currentTree = pull(state.currentTree, [item])
-  state.current = {}
-}
-
-function selectItem(item) {
-  state.current = item
-}
-
-function selectPage() {
-  state.selectPageModal = true
-}
-
-function selectPageHandle({ path, locale }) {
-  state.current.target = `/${locale}/${path}`
-}
-
-function copyFromLocale() {
-  state.copyFromLocaleDialogIsShown = false
-  state.currentTree = [
-    ...state.currentTree,
-    ...(state.trees.find((tree) => tree.locale === state.copyFromLocaleCode)?.items || [])
-  ]
-}
-
-async function save() {
-  this.$store.commit('loadingStart', 'admin-navigation-save')
-  try {
-    /*
-      FIXME: This whole handler is dead. `APOLLO_CLIENT` is not defined anywhere -- the GraphQL client
-      went with the rest of Apollo -- so saving the navigation throws here, and the nine
-      `this.$store.commit(...)` calls around it throw too, this being `<script setup>` with no Vuex
-      store in the app at all. Porting it to `API_CLIENT` and a REST route is what fixes it; see
-      "GraphQL is being removed" in CLAUDE.md.
-
-      The disable keeps `no-undef` usable repo-wide rather than hiding this: the rule is what found
-      it, and the comment is here so it stays found.
-    */
-    // eslint-disable-next-line no-undef
-    const resp = await APOLLO_CLIENT.mutate({
-      mutation: `
-        mutation ($tree: [NavigationTreeInput]!, $mode: NavigationMode!) {
-          navigation{
-            updateTree(tree: $tree) {
-              responseResult {
-                succeeded
-                errorCode
-                slug
-                message
-              }
-            },
-            updateConfig(mode: $mode) {
-              responseResult {
-                succeeded
-                errorCode
-                slug
-                message
-              }
-            }
-          }
-        }
-      `,
-      variables: {
-        tree: state.trees,
-        mode: state.config.mode
-      }
-    })
-    if (
-      resp?.data.navigation.updateTree.responseResult.succeeded &&
-      resp?.data.navigation.updateConfig.responseResult.succeeded
-    ) {
-      this.$store.commit('showNotification', {
-        message: t('navigation.saveSuccess'),
-        style: 'success',
-        icon: 'check'
-      })
-    } else {
-      throw new Error(
-        resp?.data.navigation.updateTree.operation.message || 'An unexpected error occurred.'
-      )
+function rowIcon(row) {
+  switch (row.type) {
+    case 'link': {
+      return row.icon || 'mdi:text-box-outline'
     }
-  } catch (err) {
-    this.$store.commit('pushGraphError', err)
+    case 'header': {
+      return 'la:heading'
+    }
+    default: {
+      return 'la:minus'
+    }
   }
-  this.$store.commit('loadingStop', 'admin-navigation-save')
 }
 
-async function refresh() {
-  load()
-  state.current = {}
-  this.$store.commit('showNotification', {
-    message: 'Navigation has been refreshed.',
-    style: 'success',
-    icon: 'cached'
+/**
+ * The menu of the selected locale, in full.
+ *
+ * `full`, as the editor asks for it: an administrator has to see the items limited to groups they are
+ * not in, or this screen would report a menu shorter than the one they are about to edit.
+ */
+async function loadMenu() {
+  if (!state.locale) {
+    return
+  }
+  state.loading++
+  try {
+    const menu = await API_CLIENT.get(
+      `sites/${adminStore.currentSiteId}/navigation/site/${state.locale}`
+    ).json()
+    // -> The API client does not throw on 400, so a refusal comes back as a parsed error
+    if (!menu?.navigationId) {
+      throw new Error(menu?.message || t('common.error.unexpected'))
+    }
+    state.navigationId = menu.navigationId
+    const items = await API_CLIENT.get(
+      `sites/${adminStore.currentSiteId}/navigation/${menu.navigationId}`,
+      { searchParams: { full: true } }
+    ).json()
+    state.items = Array.isArray(items) ? items : []
+  } catch (err) {
+    state.navigationId = null
+    state.items = []
+    notify({
+      type: 'negative',
+      message: apiErrorMessage(err)
+    })
+  }
+  state.loading--
+}
+
+async function load() {
+  state.loading++
+  try {
+    const site = await API_CLIENT.get(`sites/${adminStore.currentSiteId}`).json()
+    state.active = site?.locales?.active ?? []
+    if (!state.active.includes(state.locale)) {
+      state.locale = site?.locales?.primary ?? state.active[0] ?? 'en'
+    }
+    await loadMenu()
+  } catch (err) {
+    notify({
+      type: 'negative',
+      message: apiErrorMessage(err)
+    })
+  }
+  state.loading--
+}
+
+function edit() {
+  adminStore.$patch({
+    overlay: 'NavEdit',
+    overlayOpts: {
+      siteId: adminStore.currentSiteId,
+      locale: state.locale,
+      navId: state.navigationId
+    }
   })
 }
 
-// apollo: {
-//   config: {
-//     query: `
-//       {
-//         navigation {
-//           config {
-//             mode
-//           }
-//         }
-//       }
-//     `,
-//     fetchPolicy: 'network-only',
-//     update: (data) => _.cloneDeep(data.navigation.config),
-//     watchLoading (isLoading) {
-//       this.$store.commit(`loading${isLoading ? 'Start' : 'Stop'}`, 'admin-navigation-config')
-//     }
-//   },
-//   trees: {
-//     query: `
-//       {
-//         navigation {
-//           tree {
-//             locale
-//             items {
-//               id
-//               kind
-//               label
-//               icon
-//               targetType
-//               target
-//               visibilityMode
-//               visibilityGroups
-//             }
-//           }
-//         }
-//       }
-//     `,
-//     fetchPolicy: 'network-only',
-//     update: (data) => _.cloneDeep(data.navigation.tree),
-//     watchLoading (isLoading) {
-//       this.$store.commit(`loading${isLoading ? 'Start' : 'Stop'}`, 'admin-navigation-tree')
-//     }
-//   },
-//   groups: {
-//     query: `
-//       query {
-//         groups {
-//           list {
-//             id
-//             name
-//             isSystem
-//             userCount
-//             createdAt
-//             updatedAt
-//           }
-//         }
-//       }
-//     `,
-//     fetchPolicy: 'network-only',
-//     update: (data) => data.groups.list,
-//     watchLoading (isLoading) {
-//       this.$store.commit(`loading${isLoading ? 'Start' : 'Stop'}`, 'admin-navigation-groups')
-//     }
-//   },
-//   allLocales: {
-//     query: `
-//       {
-//         localization {
-//           locales {
-//             code
-//             name
-//             nativeName
-//           }
-//         }
-//       }
-//     `,
-//     fetchPolicy: 'network-only',
-//     update: (data) => data.localization.locales,
-//     watchLoading (isLoading) {
-//       this.$store.commit(`loading${isLoading ? 'Start' : 'Stop'}`, 'admin-navigation-locales')
-//     }
-//   }
-// }
-</script>
+// MOUNTED
 
-<style lang="scss" scoped>
-.clickable {
-  cursor: pointer;
-
-  &:hover {
-    background-color: rgba($blue-5, 0.25);
+onMounted(() => {
+  if (adminStore.currentSiteId) {
+    load()
   }
-}
-</style>
+})
+</script>
