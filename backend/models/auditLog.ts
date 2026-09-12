@@ -101,6 +101,7 @@ export const AUDIT_ACTIONS = {
     'updateMailConfig',
     'sendTestEmail',
     'updatePageNavigation',
+    'updateSiteNavigation',
     'runScheduledTask',
     'cancelJob',
     'retryJob',
