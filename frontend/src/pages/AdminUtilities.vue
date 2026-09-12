@@ -216,6 +216,11 @@
             <w-item-section>
               <w-item-label>{{ t(`admin.utilities.scanPageProblems`) }}</w-item-label>
               <w-item-label caption>{{ t(`admin.utilities.scanPageProblemsHint`) }}</w-item-label>
+              <!-- The scan was never built, and the hint above reads like a working feature -- say -->
+              <!-- so rather than leave a disabled button with no explanation -->
+              <w-item-label class="text-orange" caption>{{
+                t(`admin.utilities.scanPageProblemsNotImplemented`)
+              }}</w-item-label>
             </w-item-section>
             <w-item-section side>
               <w-btn
