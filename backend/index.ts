@@ -724,7 +724,6 @@ async function initHTTPServer() {
 
   //   }
   //   req.locals.langs = await WIKI.db.locales.getNavLocales({ cache: true })
-  //   req.locals.analyticsCode = await WIKI.db.analytics.getCode({ cache: true })
   //   done()
   // })
 

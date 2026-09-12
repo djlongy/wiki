@@ -151,16 +151,6 @@
               <small>{{ adminStore.info.loginsPastDay }} <i>/ past 24h</i></small>
             </div>
           </w-card-section>
-          <w-separator />
-          <w-card-actions align="right">
-            <w-btn
-              flat
-              :color="actionColor"
-              icon="la:chart-area"
-              :label="t(`admin.analytics.title`)"
-              :disable="!flagsStore.experimental"
-              :to="`/_admin/` + adminStore.currentSiteId + `/analytics`" />
-          </w-card-actions>
         </w-card>
       </div>
       <div class="col-span-12 sm:col-span-6 lg:col-span-3">
@@ -375,7 +365,6 @@ import { useDark } from '@/composables/dark'
 import { notify } from '@/composables/notify'
 import { relativeDate } from '@/helpers/datetime'
 
-import { useFlagsStore } from '@/stores/flags'
 import { useSiteStore } from '@/stores/site'
 import { useUserStore } from '@/stores/user'
 
@@ -388,7 +377,6 @@ import GroupCreateDialog from '@/components/GroupCreateDialog.vue'
 // STORES
 
 const adminStore = useAdminStore()
-const flagsStore = useFlagsStore()
 const siteStore = useSiteStore()
 const userStore = useUserStore()
 
