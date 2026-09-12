@@ -2458,6 +2458,8 @@
   "pageSource.notFound": "This page does not exist.",
   "pageSource.title": "Page Source",
   "pageSource.unavailable": "You do not have permission to view the source of this page.",
+  "pageTemplateDialog.sourceMissing": "Select the page to start from.",
+  "pageTemplateDialog.title": "New Page From Template...",
   "profile.accessibility": "Accessibility",
   "profile.activity": "Activity",
   "profile.appearance": "Site Appearance",
