@@ -11,7 +11,6 @@ import {
   pageEditSubmissions as submissionsTable,
   pages as pagesTable,
   sites as sitesTable,
-  tags as tagsTable,
   users as usersTable
 } from '../db/schema.ts'
 
@@ -261,7 +260,7 @@ class Metrics {
       WIKI.db.$count(usersTable, sql`${usersTable.isSystem} = false AND ${usersTable.isActive}`),
       WIKI.db.$count(groupsTable),
       WIKI.db.$count(sitesTable),
-      WIKI.db.$count(tagsTable),
+      WIKI.models.tags.countDistinct(),
       WIKI.db
         .select({
           total: sql<number>`count(*)::int`,
