@@ -105,6 +105,22 @@ class Tags {
       usageCount: row.usageCount as number
     }))
   }
+
+  /**
+   * How many distinct tags are in use, across every site
+   *
+   * Derived from `pages.tags` for the same reason the list is: the `tags` table is never written to,
+   * so counting rows there answers 0 on every wiki. Unscoped and unfiltered, to match the other
+   * totals it is reported alongside — the system info page and the metrics endpoint both count the
+   * whole instance, and both are for an operator rather than a reader.
+   */
+  async countDistinct(): Promise<number> {
+    const result = await WIKI.db.execute(sql`
+      SELECT count(DISTINCT tag)::int AS total
+      FROM pages, unnest(tags) AS tag
+    `)
+    return (((result.rows ?? result) as any[])[0]?.total as number) ?? 0
+  }
 }
 
 export const tags = new Tags()
