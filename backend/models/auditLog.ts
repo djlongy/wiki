@@ -129,6 +129,8 @@ export const AUDIT_ACTIONS = {
     'purgePageHistory',
     'purgeSampleContent',
     'purgeEmptyFolders',
+    'deleteTag',
+    'renameTag',
     'exportContent',
     'importContent',
     'checkForUpdate',
